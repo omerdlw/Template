@@ -1,0 +1,8 @@
+.agents/
+.next
+.open-next
+.wrangler
+node_modules
+package-lock.json
+cloudflare-env.d.ts
+supabase/.temp

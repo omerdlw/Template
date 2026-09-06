@@ -1,0 +1,5 @@
+project_id = "template"
+
+[auth.email.template.magic_link]
+subject = "Your sign-in code"
+content_path = "./supabase/templates/magic_link.html"

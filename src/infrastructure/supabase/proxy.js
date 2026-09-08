@@ -10,9 +10,25 @@ function getClientAddress(request) {
   );
 }
 
+function applySecurityHeaders(response) {
+  if (!response?.headers) return response;
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains; preload",
+  );
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
+  return response;
+}
+
 export async function updateSupabaseSession(request) {
   const config = getSupabasePublicConfig();
-  if (!config) return NextResponse.next({ request });
+  if (!config) return applySecurityHeaders(NextResponse.next({ request }));
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(config.url, config.publishableKey, {
@@ -41,7 +57,7 @@ export async function updateSupabaseSession(request) {
   const claims = data?.claims || null;
   const sessionId = String(claims?.session_id || "").trim();
 
-  if (!claims?.sub || !sessionId) return response;
+  if (!claims?.sub || !sessionId) return applySecurityHeaders(response);
 
   const { data: session } = await supabase
     .from("auth_sessions")
@@ -56,14 +72,17 @@ export async function updateSupabaseSession(request) {
     signInUrl.search = "?reason=session-revoked";
     const redirect = NextResponse.redirect(signInUrl);
     response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
-    return redirect;
+    return applySecurityHeaders(redirect);
   }
 
-  await supabase.rpc("touch_auth_session", {
+  const { error: touchError } = await supabase.rpc("touch_auth_session", {
     p_ip_address: getClientAddress(request),
     p_session_id: sessionId,
     p_user_agent: request.headers.get("user-agent"),
   });
+  if (touchError) {
+    console.error("Failed to touch auth session:", touchError);
+  }
 
-  return response;
+  return applySecurityHeaders(response);
 }

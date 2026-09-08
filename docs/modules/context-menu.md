@@ -6,12 +6,14 @@
 
 Modül aday seçimi, item normalizasyonu, viewport konumu, focus, klavye, outside click, Escape ve scroll lock yönetir. Menü action'larının iş kuralını veya backend state'ini yönetmez.
 
-| Dosya         | Sorumluluk                                   |
-| ------------- | -------------------------------------------- |
-| `resolver.js` | Aday, header, item ve konum çözümü           |
-| `runtime.js`  | Native event listener ile open/close state'i |
-| `motion.js`   | Menu motion değerleri                        |
-| `index.js`    | Public facade ve portal görünümü             |
+| Dosya          | Sorumluluk                                   |
+| -------------- | -------------------------------------------- |
+| `constants.js` | Yerleşim ve margin sabitleri                 |
+| `utils.js`     | Saf yardımcılar, node text ve lock kontrolü  |
+| `resolver.js`  | Aday, header, item ve konum çözümü           |
+| `provider.js`  | Native event listener ile open/close state'i |
+| `motion.js`    | Menu motion değerleri                        |
+| `index.js`     | Public facade ve portal görünümü             |
 
 ## Kurulum
 
@@ -99,7 +101,7 @@ Her item'a stabil `key` verin. Disabled item görünür kalır; gizlemek için `
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/context-menu/*.js modules/docs/context-menu.md
-npx eslint modules/context-menu/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/context-menu
+npx prettier --check src/modules/context-menu docs/modules/context-menu.md
 ```

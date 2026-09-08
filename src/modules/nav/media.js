@@ -7,7 +7,6 @@ import {
   useMotionValue,
   useSpring,
 } from "motion/react";
-
 import { PLAYBACK_RATES } from "./constants";
 import {
   getNavActionMotionProps,
@@ -21,16 +20,13 @@ import {
   navSoundwaveBarVariants,
 } from "./motion";
 import { clamp, formatMediaTime } from "./utils";
-import { useBackgroundActions, useBackgroundState } from "../background";
+export { formatMediaTime };
+import { useBackgroundActions, useBackgroundState } from "@/modules/background";
 import { cn } from "@/shared/utils";
 import { Button } from "@/ui/primitives";
 import Iconify from "@/ui/primitives/icon";
-
-// ── Media action composition ─────────────────────────────────────────────────
-
 function resolveActionNode(action, mediaAction, showMediaAction) {
   const MediaAction = mediaAction;
-
   if (React.isValidElement(action)) {
     return (
       <div className="flex flex-col gap-2.5">
@@ -39,10 +35,8 @@ function resolveActionNode(action, mediaAction, showMediaAction) {
       </div>
     );
   }
-
   if (typeof action === "function") {
     const ActionComponent = action;
-
     return (
       <div className="flex flex-col gap-2.5">
         <ActionComponent />
@@ -50,18 +44,8 @@ function resolveActionNode(action, mediaAction, showMediaAction) {
       </div>
     );
   }
-
   return showMediaAction ? <MediaAction /> : null;
 }
-
-/**
- * Adds the background-video toggle behaviour and optional media action to a nav item.
- * @param {object|null} item - Navigation item to enhance
- * @param {boolean} isVideo - Whether the current background is a video
- * @param {Function} toggleBackgroundVideo - Background-video toggle action
- * @param {React.ComponentType|null} mediaAction - Optional media action component
- * @returns {object|null} Enhanced navigation item
- */
 export function applyMediaAction(
   item,
   isVideo,
@@ -71,9 +55,7 @@ export function applyMediaAction(
   if (!item || !isVideo) {
     return item;
   }
-
   const showMediaAction = Boolean(mediaAction) && item.mediaAction !== false;
-
   return {
     ...item,
     action: resolveActionNode(item.action, mediaAction, showMediaAction),
@@ -84,14 +66,6 @@ export function applyMediaAction(
     },
   };
 }
-
-// ── Media controls ───────────────────────────────────────────────────────────
-
-/**
- * Renders an animated soundwave indicator.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavSoundwave = memo(function NavSoundwave({
   isPlaying = false,
   className = "",
@@ -103,7 +77,9 @@ export const NavSoundwave = memo(function NavSoundwave({
       className={cn("flex h-3.5 items-end justify-center gap-0.5", className)}
       aria-hidden="true"
     >
-      {Array.from({ length: safeBarCount }).map((_, index) => (
+      {Array.from({
+        length: safeBarCount,
+      }).map((_, index) => (
         <motion.span
           key={index}
           custom={index}
@@ -115,18 +91,11 @@ export const NavSoundwave = memo(function NavSoundwave({
     </div>
   );
 });
-
-/**
- * Renders volume slider capsule, playback speed, skip buttons, PiP and loop toggle.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavMediaControls = memo(function NavMediaControls({
   className = "",
 }) {
   const { videoElement, videoOptions } = useBackgroundState();
   const { toggleLoop } = useBackgroundActions();
-
   const [playbackRate, setPlaybackRate] = useState(
     videoElement?.playbackRate || 1,
   );
@@ -135,14 +104,12 @@ export const NavMediaControls = memo(function NavMediaControls({
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
   const [isPipActive, setIsPipActive] = useState(false);
   const [isPipSupported, setIsPipSupported] = useState(false);
-
   const isDraggingRef = useRef(false);
   const volumeTrackRef = useRef(null);
   const volumeFillRef = useRef(null);
   const volumeThumbRef = useRef(null);
   const volumeDragCleanupRef = useRef(null);
   const isLoop = Boolean(videoOptions?.loop);
-
   useEffect(() => {
     return () => {
       volumeDragCleanupRef.current?.();
@@ -150,7 +117,6 @@ export const NavMediaControls = memo(function NavMediaControls({
       isDraggingRef.current = false;
     };
   }, []);
-
   useEffect(() => {
     if (
       typeof document !== "undefined" &&
@@ -159,7 +125,6 @@ export const NavMediaControls = memo(function NavMediaControls({
       setIsPipSupported(Boolean(document.pictureInPictureEnabled));
     }
   }, []);
-
   useEffect(() => {
     if (!videoElement) {
       setPlaybackRate(1);
@@ -168,18 +133,14 @@ export const NavMediaControls = memo(function NavMediaControls({
       setIsPipActive(false);
       return undefined;
     }
-
     const syncState = () => {
       const nextRate = Number(videoElement.playbackRate);
       setPlaybackRate(Number.isFinite(nextRate) && nextRate > 0 ? nextRate : 1);
-
       if (isDraggingRef.current) return;
-
       const currentVol = Number(videoElement.volume) || 0;
       const currentMute = Boolean(videoElement.muted);
       setVolume(currentVol);
       setIsMuted(currentMute);
-
       const effective = currentMute ? 0 : currentVol;
       if (volumeFillRef.current) {
         volumeFillRef.current.style.width = `${effective * 100}%`;
@@ -188,16 +149,13 @@ export const NavMediaControls = memo(function NavMediaControls({
         volumeThumbRef.current.style.left = `${effective * 100}%`;
       }
     };
-
     const handleEnterPip = () => setIsPipActive(true);
     const handleLeavePip = () => setIsPipActive(false);
-
     syncState();
     videoElement.addEventListener("ratechange", syncState);
     videoElement.addEventListener("volumechange", syncState);
     videoElement.addEventListener("enterpictureinpicture", handleEnterPip);
     videoElement.addEventListener("leavepictureinpicture", handleLeavePip);
-
     return () => {
       videoElement.removeEventListener("ratechange", syncState);
       videoElement.removeEventListener("volumechange", syncState);
@@ -205,7 +163,6 @@ export const NavMediaControls = memo(function NavMediaControls({
       videoElement.removeEventListener("leavepictureinpicture", handleLeavePip);
     };
   }, [videoElement]);
-
   const handleCycleSpeed = useCallback(() => {
     if (!videoElement) return;
     const currentIndex = PLAYBACK_RATES.indexOf(playbackRate);
@@ -213,7 +170,6 @@ export const NavMediaControls = memo(function NavMediaControls({
     videoElement.playbackRate = nextRate;
     setPlaybackRate(nextRate);
   }, [playbackRate, videoElement]);
-
   const updateVolumeFromPosition = useCallback(
     (clientX) => {
       if (!videoElement || !volumeTrackRef.current) return;
@@ -222,23 +178,19 @@ export const NavMediaControls = memo(function NavMediaControls({
       const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width));
       const fraction = offsetX / rect.width;
       const nextVolume = Math.round(fraction * 100) / 100;
-
       if (volumeFillRef.current) {
         volumeFillRef.current.style.width = `${fraction * 100}%`;
       }
       if (volumeThumbRef.current) {
         volumeThumbRef.current.style.left = `${fraction * 100}%`;
       }
-
       videoElement.volume = nextVolume;
       videoElement.muted = nextVolume === 0;
-
       setVolume(nextVolume);
       setIsMuted(nextVolume === 0);
     },
     [videoElement],
   );
-
   const handleVolumePointerDown = useCallback(
     (event) => {
       event.preventDefault();
@@ -246,20 +198,14 @@ export const NavMediaControls = memo(function NavMediaControls({
       volumeDragCleanupRef.current?.();
       isDraggingRef.current = true;
       setIsDraggingVolume(true);
-
       try {
         event.currentTarget.setPointerCapture?.(event.pointerId);
-      } catch {
-        // Pointer capture fallback
-      }
-
+      } catch {}
       updateVolumeFromPosition(event.clientX);
-
       const handlePointerMove = (moveEvent) => {
         if (!isDraggingRef.current) return;
         updateVolumeFromPosition(moveEvent.clientX);
       };
-
       const handlePointerUp = () => {
         isDraggingRef.current = false;
         setIsDraggingVolume(false);
@@ -269,17 +215,14 @@ export const NavMediaControls = memo(function NavMediaControls({
         }
         removePointerListeners();
       };
-
       const removePointerListeners = () => {
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", handlePointerUp);
         window.removeEventListener("pointercancel", handlePointerUp);
-
         if (volumeDragCleanupRef.current === removePointerListeners) {
           volumeDragCleanupRef.current = null;
         }
       };
-
       window.addEventListener("pointermove", handlePointerMove, {
         passive: true,
       });
@@ -289,7 +232,6 @@ export const NavMediaControls = memo(function NavMediaControls({
     },
     [updateVolumeFromPosition, videoElement],
   );
-
   const handleToggleMute = useCallback(
     (event) => {
       event.stopPropagation();
@@ -319,7 +261,6 @@ export const NavMediaControls = memo(function NavMediaControls({
     },
     [isMuted, videoElement, volume],
   );
-
   const handleTogglePip = useCallback(async () => {
     if (!videoElement) return;
     try {
@@ -328,17 +269,13 @@ export const NavMediaControls = memo(function NavMediaControls({
       } else if (document.pictureInPictureEnabled) {
         await videoElement.requestPictureInPicture();
       }
-    } catch {
-      // Ignore unsupported or rejected PiP attempts gracefully
-    }
+    } catch {}
   }, [videoElement]);
-
   const handleSkipBackward = useCallback(() => {
     if (!videoElement) return;
     const current = Number(videoElement.currentTime) || 0;
     videoElement.currentTime = Math.max(0, current - 10);
   }, [videoElement]);
-
   const handleSkipForward = useCallback(() => {
     if (!videoElement) return;
     const current = Number(videoElement.currentTime) || 0;
@@ -346,7 +283,6 @@ export const NavMediaControls = memo(function NavMediaControls({
     videoElement.currentTime =
       duration > 0 ? Math.min(duration, current + 10) : current + 10;
   }, [videoElement]);
-
   const effectiveVolume = isMuted ? 0 : volume;
   const volumeIcon =
     effectiveVolume === 0
@@ -354,7 +290,6 @@ export const NavMediaControls = memo(function NavMediaControls({
       : effectiveVolume < 0.5
         ? "solar:volume-low-bold"
         : "solar:volume-loud-bold";
-
   return (
     <div
       className={cn(
@@ -401,7 +336,9 @@ export const NavMediaControls = memo(function NavMediaControls({
 
       <div className="flex items-center gap-1.5">
         <motion.div
-          {...getNavActionMotionProps({ disabled: isDraggingVolume })}
+          {...getNavActionMotionProps({
+            disabled: isDraggingVolume,
+          })}
           className={cn(
             "group flex h-8 items-center gap-1.5 rounded-full px-2.5 ring-1 select-none ring-inset",
             isDraggingVolume
@@ -529,29 +466,19 @@ export const NavMediaControls = memo(function NavMediaControls({
     </div>
   );
 });
-
-/**
- * Renders an interactive progress scrubber for the active video.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavMediaScrubber = memo(function NavMediaScrubber({
   className = "",
   showTimeOnHover = true,
 }) {
   const { isVideo, isPlaying, videoElement } = useBackgroundState();
-
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [hoverTime, setHoverTime] = useState(0);
-
   const hoverX = useMotionValue(0);
   const smoothHoverX = useSpring(hoverX, NAV_SCRUBBER_TOOLTIP_SPRING);
-
   const scrubberRef = useRef(null);
   const progressBarRef = useRef(null);
-
   useEffect(() => {
     if (!videoElement) {
       if (progressBarRef.current) {
@@ -561,9 +488,7 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
       setDuration(0);
       return undefined;
     }
-
     let animationFrameId = null;
-
     const publishProgress = () => {
       const rawCurrentTime = Number(videoElement.currentTime);
       const rawDuration = Number(videoElement.duration);
@@ -584,19 +509,15 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
         publishedDuration === total ? publishedDuration : total,
       );
     };
-
     const runProgressLoop = () => {
       publishProgress();
       animationFrameId = requestAnimationFrame(runProgressLoop);
     };
-
     publishProgress();
     if (isPlaying) animationFrameId = requestAnimationFrame(runProgressLoop);
-
     videoElement.addEventListener("timeupdate", publishProgress);
     videoElement.addEventListener("durationchange", publishProgress);
     videoElement.addEventListener("loadedmetadata", publishProgress);
-
     return () => {
       if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
@@ -606,7 +527,6 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
       videoElement.removeEventListener("loadedmetadata", publishProgress);
     };
   }, [isPlaying, videoElement]);
-
   const seekToTime = useCallback(
     (targetTime) => {
       if (!videoElement || duration <= 0) return;
@@ -619,11 +539,9 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
     },
     [duration, videoElement],
   );
-
   const handleSeek = useCallback(
     (event) => {
       if (!videoElement || !scrubberRef.current || !duration) return;
-
       const rect = scrubberRef.current.getBoundingClientRect();
       const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
       const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width));
@@ -632,7 +550,6 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
     },
     [duration, seekToTime, videoElement],
   );
-
   const handleKeyDown = useCallback(
     (event) => {
       const keyTargets = {
@@ -648,7 +565,6 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
     },
     [currentTime, duration, seekToTime],
   );
-
   const handleMouseMove = useCallback(
     (event) => {
       if (!scrubberRef.current || !duration) return;
@@ -661,11 +577,9 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
     },
     [duration, hoverX],
   );
-
   if (!isVideo || !videoElement) {
     return null;
   }
-
   return (
     <div
       ref={scrubberRef}
@@ -693,7 +607,9 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
         <div
           ref={progressBarRef}
           className="h-full w-full origin-left bg-white/70 group-hover:bg-white"
-          style={{ transform: "scaleX(0)" }}
+          style={{
+            transform: "scaleX(0)",
+          }}
         />
       </div>
 
@@ -706,7 +622,9 @@ export const NavMediaScrubber = memo(function NavMediaScrubber({
             exit="exit"
             transition={NAV_SCRUBBER_TOOLTIP_TRANSITION}
             className="pointer-events-none absolute top-3 -translate-x-1/2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs text-white ring-1 ring-white/10 ring-inset"
-            style={{ left: smoothHoverX }}
+            style={{
+              left: smoothHoverX,
+            }}
           >
             {formatMediaTime(hoverTime)}
           </motion.div>

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 
 import { requestJson } from "@/infrastructure/http/client";
+import { normalizeAccountPatch } from "@/modules/account";
 import {
   getAuthCallbackUrl,
   requestEmailAuth,
@@ -67,14 +68,14 @@ export function SignUpSurface({ close, data = {} }) {
   const isBusy = isSubmitting || Boolean(activeProvider);
 
   useEffect(() => {
+    const isAccountStep = step === "account" || step === "profile";
     const headers = {
-      description:
-        step === "profile"
-          ? "Finish setting up your profile"
-          : "Choose how you want to sign up",
+      description: isAccountStep
+        ? "Finish setting up your account"
+        : "Choose how you want to sign up",
       headerAction: null,
       icon: "solar:user-plus-bold",
-      title: step === "profile" ? "Your profile" : "Sign Up",
+      title: isAccountStep ? "Your account" : "Sign Up",
       trailing: null,
     };
     setHeader?.(headers);
@@ -110,23 +111,23 @@ export function SignUpSurface({ close, data = {} }) {
           notifyOnError: false,
           notifyOnUnauthorized: false,
         });
-        setStep("profile");
+        setStep("account");
         return;
       }
 
-      if (step === "profile") {
+      if (step === "account" || step === "profile") {
+        const accountData = normalizeAccountPatch({ username, displayName });
         await requestEmailAuth(auth.client, {
           createUser: true,
           email,
-          emailRedirectTo: getAuthCallbackUrl(postAuthRedirect),
         });
         void openSurface(
           createVerificationSurfaceEntry({
-            displayName,
+            displayName: accountData.displayName,
             email,
             mode: "sign-up",
             next: postAuthRedirect,
-            username,
+            username: accountData.username,
           }),
         );
         return;
@@ -141,8 +142,8 @@ export function SignUpSurface({ close, data = {} }) {
 
   if (!auth.isConfigured) {
     return (
-      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/65 ring-1 ring-inset ring-white/10">
-        Configure the Supabase variables in .env.local first.
+      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/70 ring-1 ring-inset ring-white/10">
+        Configure the Supabase variables in .env.local first
       </p>
     );
   }
@@ -184,7 +185,7 @@ export function SignUpSurface({ close, data = {} }) {
             />
           ) : null}
 
-          {step === "profile" ? (
+          {step === "account" || step === "profile" ? (
             <>
               <Input
                 aria-label="Username"
@@ -214,6 +215,7 @@ export function SignUpSurface({ close, data = {} }) {
               disabled={isBusy}
               onClick={() => {
                 const previousStep = {
+                  account: "email",
                   email: "methods",
                   profile: "email",
                 }[step];
@@ -227,7 +229,7 @@ export function SignUpSurface({ close, data = {} }) {
               <Icon icon="material-symbols:arrow-back-rounded" size={20} />
             </Button>
             <Button
-              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white/70 px-4 text-xs font-bold text-black uppercase hover:bg-white disabled:opacity-50"
+              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
               disabled={isBusy}
               type="submit"
             >

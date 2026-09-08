@@ -8,7 +8,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
 const INITIAL_STATE = Object.freeze({
   account: null,
   error: null,
@@ -16,52 +15,65 @@ const INITIAL_STATE = Object.freeze({
   profile: null,
 });
 const AccountContext = createContext(null);
-
 export function AccountProvider({ children, client, identity }) {
   const [state, setState] = useState(INITIAL_STATE);
   const userId = identity?.isAuthenticated ? identity?.user?.id || null : null;
-
   const refresh = useCallback(async () => {
     if (!client || !userId) {
       setState(INITIAL_STATE);
       return null;
     }
-    setState((current) => ({ ...current, error: null, isLoading: true }));
+    setState((current) => ({
+      ...current,
+      error: null,
+      isLoading: true,
+    }));
     try {
       const value = await client.getCurrentAccount();
-      setState({ ...value, error: null, isLoading: false });
+      setState({
+        ...value,
+        error: null,
+        isLoading: false,
+      });
       return value;
     } catch (error) {
-      setState((current) => ({ ...current, error, isLoading: false }));
+      setState((current) => ({
+        ...current,
+        error,
+        isLoading: false,
+      }));
       throw error;
     }
   }, [client, userId]);
-
   const update = useCallback(
     async (patch) => {
       if (!client || !userId) throw new Error("Authentication required");
       const value = await client.updateCurrentAccount(patch);
-      setState((current) => ({ ...current, ...value }));
+      setState((current) => ({
+        ...current,
+        ...value,
+      }));
       return value;
     },
     [client, userId],
   );
-
   useEffect(() => {
     if (!identity?.isReady) return;
     void refresh().catch(() => null);
   }, [identity?.isReady, refresh]);
-
   const value = useMemo(
-    () => ({ ...state, client, refresh, update }),
+    () => ({
+      ...state,
+      client,
+      refresh,
+      update,
+    }),
     [client, refresh, state, update],
   );
-
   return (
     <AccountContext.Provider value={value}>{children}</AccountContext.Provider>
   );
 }
-
 export function useAccount() {
   const context = useContext(AccountContext);
   if (!context)

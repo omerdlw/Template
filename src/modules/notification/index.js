@@ -1,20 +1,11 @@
 "use client";
-
-// Public notification interface. State and toast policy stay behind focused
-// internal seams while the visual notification surface remains here, matching
-// the module's single entry-point composition model.
+export { CRITICAL_TYPES, NOTIFICATION_CONFIG, TOAST_TYPES } from "./constants";
+export { getStorageItem, removeStorageItem, setStorageItem } from "./utils";
 export {
-  CRITICAL_TYPES,
-  NOTIFICATION_CONFIG,
   NotificationProvider,
-  TOAST_TYPES,
-  getStorageItem,
-  removeStorageItem,
-  setStorageItem,
   useNotificationActions,
   useNotificationState,
-} from "./store";
-
+} from "./provider";
 export {
   NOTIFICATION_ACTION_TAP,
   NOTIFICATION_ACTION_TRANSITION,
@@ -29,13 +20,10 @@ export {
   notificationContentVariants,
   toastVariants,
 } from "./motion";
-
 export { useToast } from "./toast";
-
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-
 import {
   EVENT_TYPES,
   globalEvents,
@@ -46,37 +34,24 @@ import {
 import { cn } from "@/shared/utils";
 import Icon from "@/ui/primitives/icon";
 import { Button } from "@/ui/primitives";
-
-import {
-  CRITICAL_TYPES,
-  NOTIFICATION_CONFIG,
-  useNotificationActions,
-  useNotificationState,
-} from "./store";
+import { CRITICAL_TYPES, NOTIFICATION_CONFIG } from "./constants";
+import { useNotificationActions, useNotificationState } from "./provider";
 import {
   NOTIFICATION_DRAG_CONSTRAINTS,
   NOTIFICATION_DRAG_ELASTIC,
   NOTIFICATION_WHILE_DRAG,
   toastVariants,
 } from "./motion";
-
-// -----------------------------------------------------------------------------
-// Notification presentation
-// -----------------------------------------------------------------------------
-// The overlay owns only normalization needed by the view. State transitions
-// remain in the store and toast policy remains in toast.js.
 export function NotificationOverlay({ notification, onDismiss }) {
   const config = {
     ...(NOTIFICATION_CONFIG[notification.type] || {}),
     ...notification,
   };
-
   const theme =
     config.theme ||
     SEMANTIC_SURFACE_CLASSES[config.tone] ||
     (typeof config.colorClass === "object" ? config.colorClass : null) ||
     SEMANTIC_SURFACE_CLASSES.info;
-
   const explicitTitle = notification.title
     ? normalizeFeedbackText(notification.title)
     : "";
@@ -86,10 +61,8 @@ export function NotificationOverlay({ notification, onDismiss }) {
     ? config.actions.filter(Boolean)
     : [];
   const resolvedIcon = notification.icon || config.icon || null;
-
   let resolvedTitle = "";
   let resolvedDescription = "";
-
   if (explicitTitle) {
     resolvedTitle = explicitTitle;
     resolvedDescription = description || message || "";
@@ -106,13 +79,10 @@ export function NotificationOverlay({ notification, onDismiss }) {
     resolvedTitle = config.title || "";
     resolvedDescription = config.description || "";
   }
-
   if (resolvedTitle === resolvedDescription) {
     resolvedDescription = "";
   }
-
   if (!resolvedTitle && !resolvedDescription) return null;
-
   return (
     <section
       role="alert"
@@ -125,7 +95,7 @@ export function NotificationOverlay({ notification, onDismiss }) {
         onDismiss();
       }}
       className={cn(
-        "pointer-events-auto relative w-full overflow-hidden rounded-none bg-black/75 p-2.5 ring-1 ring-white/10 backdrop-blur-xl transition-all duration-300 ease-in-out ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 sm:rounded-[30px]",
+        "pointer-events-auto relative w-full overflow-hidden rounded-none bg-black/80 p-2.5 ring-1 ring-white/10 backdrop-blur-xl transition-all duration-300 ease-in-out ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 sm:rounded-[30px]",
         theme.surface,
       )}
       style={{
@@ -204,38 +174,30 @@ export function NotificationOverlay({ notification, onDismiss }) {
     </section>
   );
 }
-
 function sortNotificationsByTimestamp(notifications = {}) {
   return Object.entries(notifications).sort(([, first], [, second]) => {
     return first.timestamp - second.timestamp;
   });
 }
-
-// -----------------------------------------------------------------------------
-// Portal container
-// -----------------------------------------------------------------------------
-// The portal target is resolved after mount so server rendering never reads
-// document and the notification layer stays outside page stacking contexts.
 export function NotificationContainer() {
   const { notifications } = useNotificationState();
   const { dismissNotification } = useNotificationActions();
   const [portalTarget, setPortalTarget] = useState(null);
-
   useEffect(() => {
     setPortalTarget(document.body);
   }, []);
-
   const sortedNotifications = useMemo(
     () => sortNotificationsByTimestamp(notifications),
     [notifications],
   );
-
   const notificationContent = (
     <div
       aria-atomic="true"
       aria-live="polite"
       className="pointer-events-none fixed top-0 right-0 left-0 mx-0 flex w-full max-w-none flex-col gap-2.5 overflow-visible p-0 sm:top-4 sm:right-4 sm:left-auto sm:mx-0 sm:max-w-[420px]"
-      style={{ zIndex: Z_INDEX.NOTIFICATION }}
+      style={{
+        zIndex: Z_INDEX.NOTIFICATION,
+      }}
     >
       <AnimatePresence initial={false}>
         {sortedNotifications.map(([id, notification]) => {
@@ -269,39 +231,26 @@ export function NotificationContainer() {
       </AnimatePresence>
     </div>
   );
-
   return portalTarget ? createPortal(notificationContent, portalTarget) : null;
 }
-
-// -----------------------------------------------------------------------------
-// Application event bridges
-// -----------------------------------------------------------------------------
 const SESSION_EXPIRED_MESSAGE =
   "Your session has expired. Please sign in again";
-
 export function NotificationListener() {
   const { showNotification } = useNotificationActions();
-
   useEffect(() => {
     const unsubscribe = globalEvents.subscribe(
       EVENT_TYPES.API_UNAUTHORIZED,
       (data) => {
         if (data?.source && data.source !== "app") return;
-
         showNotification(CRITICAL_TYPES.SESSION_EXPIRED, {
           message: SESSION_EXPIRED_MESSAGE,
         });
       },
     );
-
     return unsubscribe;
   }, [showNotification]);
-
   return null;
 }
-
-// Kept as a public no-op compatibility hook for feature layouts that already
-// mount it; badge behavior can be added without changing their composition.
 export function NotificationBadgeListener() {
   return null;
 }

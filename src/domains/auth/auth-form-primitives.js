@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { OAUTH_PROVIDERS } from "@/modules/auth/contract";
+import { OAUTH_PROVIDERS } from "@/modules/auth";
 import { navListItemVariants } from "@/modules/nav";
 import { Button, Icon } from "@/ui/primitives";
 

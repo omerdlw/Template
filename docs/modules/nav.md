@@ -6,16 +6,25 @@
 
 Nav route kartlarını ve geçici navigation UI'ını yönetir. Domain API'leri, ürün metni, sayfa state'i ve route'a ait veri yükleme modülün dışında kalır.
 
-| Alan                                                                | Sahiplik                                              |
-| ------------------------------------------------------------------- | ----------------------------------------------------- |
-| `index.js`                                                          | Public facade, `Nav` renderer ve provider composition |
-| `surface.js`                                                        | Surface stack, flow, return handshake ve extensions   |
-| `scheduler.js`                                                      | Enjekte edilebilir timer/frame zamanlaması            |
-| `hud.js`                                                            | HUD descriptor, seçim ve görünüm                      |
-| `routing.js`                                                        | Transaction, guard, continuity ve route policy        |
-| `runtime.js`                                                        | React state, contexts ve public hook'lar              |
-| `cards.js`, `breadcrumbs.js`, `media.js`, `status.js`               | İlgili görünüm veya policy alanı                      |
-| `constants.js`, `motion.js`, `utils.js`, `layout.js`, `behavior.js` | Paylaşılan Nav sözleşmeleri ve interaction altyapısı  |
+| Dosya            | Sorumluluk                                                             |
+| ---------------- | ---------------------------------------------------------------------- |
+| `index.js`       | Public facade ve Nav stack renderer                                    |
+| `provider.js`    | Provider composition, context, guard, state ve display hook'ları       |
+| `runtime.js`     | Operation state, diagnostic store ve selector store                    |
+| `surface.js`     | Surface stack, flow, return handshake ve extensions                    |
+| `scheduler.js`   | Enjekte edilebilir timer/frame zamanlaması                             |
+| `hud.js`         | HUD descriptor, seçim, Registry lifecycle ve görünüm                   |
+| `routing.js`     | Path normalizasyonu, route policy, transaction, continuity ve topology |
+| `layout.js`      | Kart stili, kimlik, DOM ölçümü ve viewport geometrisi                  |
+| `behavior.js`    | Focus, klavye, scroll ve compact etkileşimi                            |
+| `cards.js`       | Nav kartı ve header/body render bileşenleri                            |
+| `commands.js`    | Command kaydı, görünürlük, sıralama ve command bar                     |
+| `breadcrumbs.js` | Breadcrumb çözümü, override provider ve görünüm                        |
+| `media.js`       | Medya kontrolleri, scrubber ve süre biçimlendirmesi                    |
+| `status.js`      | Paylaşılan olaylardan status çözümü ve status görünümü                 |
+| `constants.js`   | Nav seçenekleri, durum adları ve tasarım sabitleri                     |
+| `motion.js`      | Animasyon değerleri, transition ve choreography hesapları              |
+| `utils.js`       | Ortak değer/React node normalizasyonu ve sığ karşılaştırma             |
 
 ## Kurulum
 
@@ -48,6 +57,8 @@ Provider'ı route bazında tekrar kurmayın. Surface, operation ve continuity st
 | Scroll/focus dönüşü               | `useNavigationContinuityState`, `useSurfaceReturn`            |
 
 HUD progress değeri `0` ile `100`, operation progress değeri `0` ile `1` arasındadır.
+
+HUD kartı hazır başlık, ikon, progress veya kapatma kontrolü render etmez. Producer content JSX nodeuna tam sahip olur; Registry üzerinden yayınlamak için useNavHudRegistration kullanılır.
 
 ## Kullanım
 
@@ -135,13 +146,13 @@ Kart ve surface tanımlarını stabil `id`/`key` ile üretin. Domain state'ini N
 
 Render için tek veya birkaç Nav alanı yeterliyse `useNavigationState` yerine
 `useNavigationSelector` kullanın. Selector saf olmalı; birden fazla alan döndürüyorsa stabil bir
-eşitlik fonksiyonu verin. Deterministik scheduler ve transition sürücüsü yalnızca
-`@/modules/nav/experimental` üzerinden test ve araç geliştirme amacıyla sunulur.
+eşitlik fonksiyonu verin. Deterministik scheduler ve transition sürücüsü internal seam'lerdir;
+colocated Nav testleri bu davranışları sahiplerinin yanında doğrular.
 
 ## Doğrulama
 
 ```bash
-npx prettier --check src/modules/nav/*.js docs/modules/nav.md
-npx eslint src/modules/nav/*.js
-node --import ./scripts/register-alias.mjs --test tests/nav.test.js tests/nav-runtime.test.js
+npm test
+npx eslint src/modules/nav
+npx prettier --check src/modules/nav docs/modules/nav.md
 ```

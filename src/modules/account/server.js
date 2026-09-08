@@ -1,78 +1,128 @@
 import "server-only";
-
-import { normalizeProfilePatch, toPublicProfile } from "./contract";
+import {
+  normalizeAccountPatch,
+  toCurrentAccount,
+  toPublicAccount,
+} from "./utils";
 
 function requireAccountContext({ client, userId }) {
   if (!client || !userId)
     throw new Error("Account client and authenticated user id are required");
-  return { client, userId };
+  return {
+    client,
+    userId,
+  };
 }
 
 export async function getCurrentAccount(context) {
   const { client, userId } = requireAccountContext(context);
-  const [
-    { data: account, error: accountError },
-    { data: profile, error: profileError },
-  ] = await Promise.all([
+  const [{ data: accountRow, error }, { data: emailRow }] = await Promise.all([
     client
       .from("accounts")
-      .select("id,email,status,deactivated_at,created_at,updated_at")
+      .select("*")
       .eq("id", userId)
       .single(),
-    client.from("profiles").select("*").eq("id", userId).single(),
+    client
+      .from("account_emails")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle(),
   ]);
 
-  if (accountError) throw accountError;
-  if (profileError) throw profileError;
+  if (error) throw error;
+  const account = toCurrentAccount({
+    ...accountRow,
+    email: emailRow?.email || null,
+  });
   return {
-    account: {
-      createdAt: account.created_at,
-      deactivatedAt: account.deactivated_at,
-      email: account.email,
-      id: account.id,
-      status: account.status,
-      updatedAt: account.updated_at,
-    },
-    profile: toPublicProfile(profile),
+    account,
+    profile: account,
   };
 }
 
-export async function getPublicProfile({ client, username }) {
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function getPublicAccount({ client, username }) {
   if (!client) throw new Error("Account client is required");
-  const { data, error } = await client
-    .from("profiles")
-    .select("*")
-    .eq("username", String(username || "").toLowerCase())
-    .maybeSingle();
+  const identifier = String(username || "").toLowerCase();
+  if (!identifier) return null;
+
+  let query = client
+    .from("accounts")
+    .select(
+      "id,username,display_name,avatar_url,banner_url,bio,is_private,created_at,updated_at",
+    );
+
+  if (UUID_PATTERN.test(identifier)) {
+    query = query.or(`username.eq.${identifier},id.eq.${identifier}`);
+  } else {
+    query = query.eq("username", identifier);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
   if (error) throw error;
-  return toPublicProfile(data);
+  return toPublicAccount(data);
 }
 
-export async function updateAccountProfile({ client, input, userId }) {
-  requireAccountContext({ client, userId });
-  const patch = normalizeProfilePatch(input);
-  const { data, error } = await client.rpc("update_account_profile", {
-    p_avatar_url: patch.avatarUrl,
-    p_banner_url: patch.bannerUrl,
-    p_bio: patch.bio,
-    p_display_name: patch.displayName,
-    p_is_private: patch.isPrivate,
-    p_username: patch.username,
+export const getPublicProfile = getPublicAccount;
+
+export async function updateAccount({ client, input, userId }) {
+  requireAccountContext({
+    client,
+    userId,
   });
+  const patch = normalizeAccountPatch(input);
+  const [{ data, error }, { data: emailRow }] = await Promise.all([
+    client.rpc("update_account", {
+      p_avatar_url: patch.avatarUrl,
+      p_banner_url: patch.bannerUrl,
+      p_bio: patch.bio,
+      p_display_name: patch.displayName,
+      p_is_private: patch.isPrivate,
+      p_username: patch.username,
+    }),
+    client
+      .from("account_emails")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
   if (error) throw error;
-  return { profile: toPublicProfile(data), userId };
+  const account = toCurrentAccount({
+    ...data,
+    email: emailRow?.email || null,
+  });
+  return {
+    account,
+    profile: account,
+    userId,
+  };
 }
 
+export const updateAccountProfile = updateAccount;
 export async function deactivateCurrentAccount({ client, userId }) {
-  requireAccountContext({ client, userId });
+  requireAccountContext({
+    client,
+    userId,
+  });
   const { error } = await client.rpc("deactivate_current_account");
   if (error) throw error;
-  return { deactivated: true, userId };
+  return {
+    deactivated: true,
+    userId,
+  };
 }
-
 export async function reactivateCurrentAccount({ client, userId }) {
-  requireAccountContext({ client, userId });
+  requireAccountContext({
+    client,
+    userId,
+  });
   const { error } = await client.rpc("reactivate_current_account");
   if (error) throw error;
-  return { reactivated: true, userId };
+  return {
+    reactivated: true,
+    userId,
+  };
 }

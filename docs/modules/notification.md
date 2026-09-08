@@ -4,7 +4,7 @@
 
 ## Sınır
 
-`store.js` state, critical persistence ve browser storage'ı; `toast.js` mesaj odaklı facade ile production policy'sini; `motion.js` interaction değerlerini; `index.js` renderer, listener ve public facade'ı içerir.
+`provider.js` state, critical persistence ve browser storage'ı; `toast.js` mesaj odaklı facade ile production policy'sini; `motion.js` interaction değerlerini; `index.js` renderer, listener ve public facade'ı içerir.
 
 Kritik türler `PERMISSION_DENIED`, `SESSION_EXPIRED`, `SERVER_ERROR` ve `OFFLINE`dır. Toast türleri `SUCCESS`, `WARNING`, `ERROR` ve `INFO`dur. Yalnız kritik türler refresh sonrasında geri yüklenir.
 
@@ -99,7 +99,7 @@ Domain event'lerini bu modülde üretmeyin. Payload'a token veya gereksiz kişis
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/notification/*.js modules/docs/notification.md
-npx eslint modules/notification/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/notification
+npx prettier --check src/modules/notification docs/modules/notification.md
 ```

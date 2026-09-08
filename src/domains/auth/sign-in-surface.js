@@ -143,7 +143,6 @@ export function SignInSurface({ close, data = {} }) {
       await requestEmailAuth(auth.client, {
         createUser: false,
         email,
-        emailRedirectTo: getAuthCallbackUrl(postAuthRedirect),
       });
       void openSurface(
         createVerificationSurfaceEntry({
@@ -170,8 +169,8 @@ export function SignInSurface({ close, data = {} }) {
 
   if (!auth.isConfigured) {
     return (
-      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/65 ring-1 ring-inset ring-white/10">
-        Configure the Supabase variables in .env.local first.
+      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/70 ring-1 ring-inset ring-white/10">
+        Configure the Supabase variables in .env.local first
       </p>
     );
   }
@@ -218,7 +217,7 @@ export function SignInSurface({ close, data = {} }) {
               <Icon icon="material-symbols:arrow-back-rounded" size={20} />
             </Button>
             <Button
-              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white/70 px-4 text-xs font-bold text-black uppercase hover:bg-white disabled:opacity-50"
+              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
               disabled={isBusy}
               type="submit"
             >

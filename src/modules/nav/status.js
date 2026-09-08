@@ -11,26 +11,25 @@ import {
   SUCCESS_ACTION_TONE_CLASS,
   WARNING_ACTION_TONE_CLASS,
 } from "@/shared";
-import { useNavRuntimeRegistry } from "../registry";
+import { useNavRuntimeRegistry } from "@/modules/registry";
 import {
   API_ERROR_BATCH_DELAY,
   AUTH_STATUS_CLEAR_DURATION,
   AUTH_STATUS_STORAGE_KEY,
   AUTH_STATUS_TYPES,
   ERROR_STATUS_TYPES,
-  getNavActionClass,
   NAV_ACTION_STYLES,
   SEMANTIC_SURFACE_CLASSES,
   STATUS_CLEAR_DURATION,
   STATUS_PRIORITY,
   STATUS_TONES,
 } from "./constants";
+import { getNavActionClass, normalizeLower, normalizeUpper } from "./utils";
+export { normalizeLower, normalizeUpper };
 import { NAV_FADE_TRANSITION, textCrossfadeVariants } from "./motion";
-import { normalizeLower, normalizeUpper } from "./utils";
 import { cn } from "@/shared/utils";
 import { Spinner } from "@/ui/feedback/spinner";
 import { Button } from "@/ui/primitives";
-
 export function ErrorActions({
   onRetry,
   onRefresh,
@@ -42,7 +41,6 @@ export function ErrorActions({
 }) {
   const effectiveRetry = retryLabel || retryText || "Retry";
   const effectiveRefresh = refreshLabel || refreshText || "Refresh";
-
   return (
     <motion.div
       variants={textCrossfadeVariants}
@@ -81,9 +79,7 @@ export function ErrorActions({
     </motion.div>
   );
 }
-
 export const ErrorAction = ErrorActions;
-
 export function GuardActions({
   onCancel,
   onConfirm,
@@ -95,7 +91,6 @@ export function GuardActions({
 }) {
   const effectiveCancel = cancelLabel || cancelText || "Stay";
   const effectiveConfirm = confirmLabel || confirmText || "Leave";
-
   return (
     <motion.div
       variants={textCrossfadeVariants}
@@ -134,11 +129,7 @@ export function GuardActions({
     </motion.div>
   );
 }
-
 export const GuardAction = GuardActions;
-
-// ── Status definitions, persistence, and feedback ─────────────────────────────
-
 function readSessionStorage() {
   try {
     if (
@@ -152,41 +143,28 @@ function readSessionStorage() {
     return null;
   }
 }
-
 function isErrorStatus(type) {
   return ERROR_STATUS_TYPES.has(type);
 }
-
 function getStatusPriority(type) {
   return STATUS_PRIORITY[type] ?? 0;
 }
-
 function resolveStatusPriority(status) {
   if (!status) {
     return 0;
   }
-
   const explicitPriority = Number(status.priority);
-
   return Number.isFinite(explicitPriority)
     ? explicitPriority
     : getStatusPriority(status.type);
 }
-
 function getStatusTone(type) {
   return STATUS_TONES[type] || "info";
 }
-
-/**
- * Returns semantic card styles for a navigation status type.
- * @param {string} type - Navigation status type
- * @returns {object} Semantic navigation style
- */
 export function getStatusTheme(type) {
   const semanticTone =
     SEMANTIC_SURFACE_CLASSES[getStatusTone(type)] ||
     SEMANTIC_SURFACE_CLASSES.info;
-
   return {
     card: {
       className: semanticTone.surface,
@@ -203,7 +181,6 @@ export function getStatusTheme(type) {
     },
   };
 }
-
 function isPersistableAuthStatus(status) {
   return (
     Boolean(status) &&
@@ -211,22 +188,16 @@ function isPersistableAuthStatus(status) {
     (typeof status.icon === "string" || status.icon == null)
   );
 }
-
 function clearPersistedAuthStatus() {
   try {
     readSessionStorage()?.removeItem(AUTH_STATUS_STORAGE_KEY);
-  } catch {
-    // Storage can become unavailable after initialization in restricted browser contexts.
-  }
+  } catch {}
 }
-
 function persistAuthStatus(status, duration) {
   const storage = readSessionStorage();
-
   if (!isPersistableAuthStatus(status) || !storage) {
     return;
   }
-
   try {
     storage.setItem(
       AUTH_STATUS_STORAGE_KEY,
@@ -240,29 +211,21 @@ function persistAuthStatus(status, duration) {
         type: status.type,
       }),
     );
-  } catch {
-    // Status persistence is best-effort; rendering must continue without storage.
-  }
+  } catch {}
 }
-
 function restorePersistedAuthStatus() {
   const storage = readSessionStorage();
-
   if (!storage) {
     return null;
   }
-
   try {
     const rawValue = storage.getItem(AUTH_STATUS_STORAGE_KEY);
-
     if (!rawValue) {
       return null;
     }
-
     const payload = JSON.parse(rawValue);
     const type = normalizeUpper(payload?.type);
     const expiresAt = Number(payload?.expiresAt || 0);
-
     if (
       !AUTH_STATUS_TYPES.has(type) ||
       !Number.isFinite(expiresAt) ||
@@ -271,7 +234,6 @@ function restorePersistedAuthStatus() {
       clearPersistedAuthStatus();
       return null;
     }
-
     return {
       remainingMs: expiresAt - Date.now(),
       status: createOverlayStatus({
@@ -291,7 +253,6 @@ function restorePersistedAuthStatus() {
     return null;
   }
 }
-
 function createOverlayStatus({
   type,
   title,
@@ -318,7 +279,6 @@ function createOverlayStatus({
     hideScroll: true,
   };
 }
-
 export function createErrorStatus({
   type,
   title,
@@ -343,9 +303,7 @@ export function createErrorStatus({
       : () => {
           window.location.reload();
         };
-
   const ActionComponent = action || errorAction || ErrorActions;
-
   return createOverlayStatus({
     type,
     title,
@@ -365,7 +323,6 @@ export function createErrorStatus({
     ),
   });
 }
-
 export function createGuardStatus({
   action,
   guardAction,
@@ -385,16 +342,13 @@ export function createGuardStatus({
     clearStatus?.();
     onCancel?.();
   };
-
   const confirmHandler = () => {
     clearStatus?.();
     onConfirm?.();
   };
-
   const effectiveCancel = cancelLabel || cancelText;
   const effectiveConfirm = confirmLabel || confirmText;
   const GuardActionComponent = action || guardAction || GuardActions;
-
   return createOverlayStatus({
     type: "GUARD",
     priority: STATUS_PRIORITY.GUARD,
@@ -415,27 +369,21 @@ export function createGuardStatus({
     ),
   });
 }
-
 function createProgressIcon() {
   return <Spinner size={24} />;
 }
-
 function createSuccessIcon() {
   return "material-symbols:check-rounded";
 }
-
 function resolveFeedbackIcon({ phase, icon = null }) {
   if (phase === "start") {
     return createProgressIcon();
   }
-
   if (phase === "success") {
     return createSuccessIcon();
   }
-
   return icon;
 }
-
 function createConnectionStatus(type) {
   if (type === "OFFLINE") {
     return createOverlayStatus({
@@ -446,7 +394,6 @@ function createConnectionStatus(type) {
       style: getStatusTheme(type),
     });
   }
-
   return createOverlayStatus({
     type: "ONLINE",
     title: "Connection Restored",
@@ -456,7 +403,6 @@ function createConnectionStatus(type) {
     isOverlay: false,
   });
 }
-
 function createAuthStatus({
   type,
   user = null,
@@ -471,28 +417,23 @@ function createAuthStatus({
     style: getStatusTheme(type),
   });
 }
-
 function normalizeAuthFeedback(eventData = {}) {
   const phase = normalizeLower(eventData?.phase);
   const flow = normalizeLower(eventData?.flow);
   const statusType = normalizeUpper(
     eventData?.statusType || flow || "AUTH_FEEDBACK",
   );
-
   return {
     flow,
     phase,
     statusType,
   };
 }
-
 function createAuthFeedbackStatus(eventData = {}) {
   const { flow, phase, statusType } = normalizeAuthFeedback(eventData);
-
   if (!phase) {
     return null;
   }
-
   return createOverlayStatus({
     type: statusType,
     flow,
@@ -507,7 +448,6 @@ function createAuthFeedbackStatus(eventData = {}) {
     isOverlay: eventData?.isOverlay !== false,
   });
 }
-
 function isEquivalentAuthStatus(currentStatus, nextStatus) {
   return (
     Boolean(currentStatus) &&
@@ -519,9 +459,6 @@ function isEquivalentAuthStatus(currentStatus, nextStatus) {
     currentStatus.isOverlay === nextStatus.isOverlay
   );
 }
-
-// ── Runtime status orchestration ───────────────────────────────────────────────
-
 function subscribeToApiErrorStatusEvents({
   apiErrorQueueRef,
   batchTimerRef,
@@ -531,27 +468,21 @@ function subscribeToApiErrorStatusEvents({
 }) {
   return globalEvents.subscribe(EVENT_TYPES.API_ERROR, (eventData) => {
     const { status: errorStatus, message, isCritical, retry } = eventData || {};
-
     if (!isCritical) {
       return;
     }
-
     apiErrorQueueRef.current.push({
       status: errorStatus,
       message,
       retry,
     });
-
     clearTimer(batchTimerRef);
-
     batchTimerRef.current = setTimeout(() => {
       const errors = [...apiErrorQueueRef.current];
       apiErrorQueueRef.current = [];
-
       if (errors.length === 0) {
         return;
       }
-
       const isBatch = errors.length > 1;
       const title = isBatch
         ? "Multiple API Errors"
@@ -559,7 +490,6 @@ function subscribeToApiErrorStatusEvents({
       const description = isBatch
         ? `${errors.length} requests failed`
         : errors[0].message || "An error occurred during the request";
-
       updateStatus(
         createErrorStatus({
           type: "API_ERROR",
@@ -576,7 +506,6 @@ function subscribeToApiErrorStatusEvents({
     }, API_ERROR_BATCH_DELAY);
   });
 }
-
 function subscribeToApplicationErrorStatusEvents({
   clearStatus,
   dispatchOfflineEvent,
@@ -584,7 +513,6 @@ function subscribeToApplicationErrorStatusEvents({
 }) {
   return globalEvents.subscribe(EVENT_TYPES.APP_ERROR, (eventData) => {
     const { message, error, resetError } = eventData || {};
-
     updateStatus(
       createErrorStatus({
         type: "APP_ERROR",
@@ -595,7 +523,6 @@ function subscribeToApplicationErrorStatusEvents({
         onRetry: resetError
           ? () => {
               resetError();
-
               if (typeof navigator !== "undefined" && !navigator.onLine) {
                 dispatchOfflineEvent();
               }
@@ -607,36 +534,29 @@ function subscribeToApplicationErrorStatusEvents({
     );
   });
 }
-
 function subscribeToSignOutStatusEvents({ scheduleStatusClear, updateStatus }) {
   return globalEvents.subscribe(EVENT_TYPES.AUTH_SIGN_OUT, (eventData) => {
     const isAccountDelete = eventData?.reason === "delete-account";
     const user = eventData?.previousSession?.user || null;
-
     if (!user && !isAccountDelete) {
       return;
     }
-
     const type = isAccountDelete ? "ACCOUNT_DELETE" : "LOGOUT";
     const nextStatus = createAuthStatus({
       type,
       user,
       description: isAccountDelete ? "Account deleted" : "Signed out",
     });
-
     updateStatus(nextStatus);
-
     scheduleStatusClear({
       duration: AUTH_STATUS_CLEAR_DURATION,
       clearWhen: [type],
     });
-
     if (!isAccountDelete) {
       persistAuthStatus(nextStatus, AUTH_STATUS_CLEAR_DURATION);
     }
   });
 }
-
 function subscribeToAccountDeletionStatusEvents({
   clearTimer,
   statusClearTimerRef,
@@ -647,9 +567,7 @@ function subscribeToAccountDeletionStatusEvents({
     EVENT_TYPES.AUTH_ACCOUNT_DELETE_START,
     (eventData) => {
       const user = eventData?.user || null;
-
       clearTimer(statusClearTimerRef);
-
       updateStatus(
         createOverlayStatus({
           type: "ACCOUNT_DELETE",
@@ -661,79 +579,62 @@ function subscribeToAccountDeletionStatusEvents({
       );
     },
   );
-
   const unsubscribeEnd = globalEvents.subscribe(
     EVENT_TYPES.AUTH_ACCOUNT_DELETE_END,
     (eventData) => {
       if (eventData?.status !== "failure") {
         return;
       }
-
       clearTimer(statusClearTimerRef);
-
       setStatus((currentStatus) =>
         currentStatus?.type === "ACCOUNT_DELETE" ? null : currentStatus,
       );
     },
   );
-
   return () => {
     unsubscribeStart();
     unsubscribeEnd();
   };
 }
-
 function subscribeToSignInStatusEvents({ scheduleStatusClear, updateStatus }) {
   return globalEvents.subscribe(EVENT_TYPES.AUTH_SIGN_IN, (eventData) => {
     const user = eventData?.session?.user;
-
     if (!user) {
       return;
     }
-
     const nextStatus = createAuthStatus({
       type: "LOGIN",
       user,
       titleFallback: "User",
       description: "Signed in",
     });
-
     updateStatus(nextStatus);
-
     scheduleStatusClear({
       duration: AUTH_STATUS_CLEAR_DURATION,
       clearWhen: ["LOGIN"],
     });
-
     persistAuthStatus(nextStatus, AUTH_STATUS_CLEAR_DURATION);
   });
 }
-
 function subscribeToSignUpStatusEvents({ scheduleStatusClear, updateStatus }) {
   return globalEvents.subscribe(EVENT_TYPES.AUTH_SIGN_UP, (eventData) => {
     const user = eventData?.session?.user;
-
     if (!user) {
       return;
     }
-
     const nextStatus = createAuthStatus({
       type: "SIGNUP",
       user,
       description: "Setting up account",
     });
-
     updateStatus(nextStatus);
-
     scheduleStatusClear({
       duration: AUTH_STATUS_CLEAR_DURATION,
       clearWhen: ["SIGNUP"],
     });
-
     persistAuthStatus(nextStatus, AUTH_STATUS_CLEAR_DURATION);
   });
 }
-
 function subscribeToAuthFeedbackStatusEvents({
   clearTimer,
   scheduleStatusClear,
@@ -743,29 +644,23 @@ function subscribeToAuthFeedbackStatusEvents({
 }) {
   return globalEvents.subscribe(EVENT_TYPES.AUTH_FEEDBACK, (eventData) => {
     const { flow, phase, statusType } = normalizeAuthFeedback(eventData);
-
     if (!phase) {
       return;
     }
-
     if (phase === "clear" || phase === "failure") {
       clearTimer(statusClearTimerRef);
       setStatus((currentStatus) => {
         if (!currentStatus) {
           return currentStatus;
         }
-
         if (flow && currentStatus.flow === flow) {
           return null;
         }
-
         return currentStatus.type === statusType ? null : currentStatus;
       });
       return;
     }
-
     updateStatus(createAuthFeedbackStatus(eventData));
-
     if (phase === "success") {
       scheduleStatusClear({
         duration:
@@ -776,11 +671,9 @@ function subscribeToAuthFeedbackStatusEvents({
       });
       return;
     }
-
     clearTimer(statusClearTimerRef);
   });
 }
-
 function subscribeToNotFoundStatusEvents({
   notFoundAction,
   setStatus,
@@ -793,7 +686,6 @@ function subscribeToNotFoundStatusEvents({
       );
       return;
     }
-
     updateStatus({
       type: "NOT_FOUND",
       path: "not-found",
@@ -814,7 +706,6 @@ function subscribeToNotFoundStatusEvents({
     });
   });
 }
-
 function subscribeToGuardStatusEvents({
   clearStatus,
   setStatus,
@@ -827,7 +718,6 @@ function subscribeToGuardStatusEvents({
       );
       return;
     }
-
     updateStatus(
       createGuardStatus({
         action: eventData?.action,
@@ -850,21 +740,17 @@ function subscribeToGuardStatusEvents({
     );
   });
 }
-
 function subscribeToConnectionStatusEvents({ handleOffline, handleOnline }) {
   window.addEventListener("offline", handleOffline);
   window.addEventListener("online", handleOnline);
-
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     handleOffline();
   }
-
   return () => {
     window.removeEventListener("offline", handleOffline);
     window.removeEventListener("online", handleOnline);
   };
 }
-
 function usePersistedAuthStatusRestoration({
   scheduleStatusClear,
   setStatus,
@@ -872,11 +758,9 @@ function usePersistedAuthStatusRestoration({
 }) {
   useEffect(() => {
     const persistedStatus = restorePersistedAuthStatus();
-
     if (!persistedStatus) {
       return;
     }
-
     skipPersistedStatusCleanupRef.current = true;
     setStatus((currentStatus) => currentStatus || persistedStatus.status);
     scheduleStatusClear({
@@ -885,7 +769,6 @@ function usePersistedAuthStatusRestoration({
     });
   }, [scheduleStatusClear]);
 }
-
 function usePersistedAuthStatusCleanup({
   skipPersistedStatusCleanupRef,
   status,
@@ -895,15 +778,12 @@ function usePersistedAuthStatusCleanup({
       skipPersistedStatusCleanupRef.current = false;
       return;
     }
-
     if (isPersistableAuthStatus(status)) {
       return;
     }
-
     clearPersistedAuthStatus();
   }, [status]);
 }
-
 function useRouteErrorStatusCleanup({
   dispatchOfflineEvent,
   pathname,
@@ -914,9 +794,7 @@ function useRouteErrorStatusCleanup({
     if (previousPathRef.current === pathname) {
       return;
     }
-
     previousPathRef.current = pathname;
-
     setStatus((currentStatus) => {
       if (
         currentStatus &&
@@ -926,15 +804,12 @@ function useRouteErrorStatusCleanup({
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           dispatchOfflineEvent();
         }
-
         return null;
       }
-
       return currentStatus;
     });
   }, [pathname, dispatchOfflineEvent]);
 }
-
 function useNavigationStatusEventSubscriptions({
   apiErrorQueueRef,
   batchTimerRef,
@@ -1002,7 +877,6 @@ function useNavigationStatusEventSubscriptions({
       handleOffline,
       handleOnline,
     });
-
     return () => {
       unsubscribeApiError();
       unsubscribeAppError();
@@ -1013,7 +887,6 @@ function useNavigationStatusEventSubscriptions({
       unsubscribeAuthFeedback();
       unsubscribeNotFound();
       unsubscribeGuard();
-
       clearTransientTimers();
       unsubscribeConnection();
     };
@@ -1032,7 +905,6 @@ function useNavigationStatusEventSubscriptions({
     updateStatus,
   ]);
 }
-
 function useNavigationStatusTimerCleanup(clearAllTimers) {
   useEffect(() => {
     return () => {
@@ -1040,87 +912,66 @@ function useNavigationStatusTimerCleanup(clearAllTimers) {
     };
   }, [clearAllTimers]);
 }
-
-/**
- * Subscribes to application events and resolves the active navigation status.
- * @returns {NavigationStatus|null} Active status definition
- */
 export function useNavigationStatus() {
   const pathname = usePathname();
   const { notFoundAction } = useNavRuntimeRegistry();
   const [status, setStatus] = useState(null);
-
   const previousPathRef = useRef(pathname);
   const apiErrorQueueRef = useRef([]);
   const skipPersistedStatusCleanupRef = useRef(false);
-
   const batchTimerRef = useRef(null);
   const statusClearTimerRef = useRef(null);
   const onlineResetTimerRef = useRef(null);
   const offlineDispatchTimerRef = useRef(null);
-
   const clearTimer = useCallback((timerRef) => {
     if (!timerRef.current) {
       return;
     }
-
     clearTimeout(timerRef.current);
     timerRef.current = null;
   }, []);
-
   const clearTransientTimers = useCallback(() => {
     clearTimer(batchTimerRef);
     clearTimer(onlineResetTimerRef);
     clearTimer(offlineDispatchTimerRef);
   }, [clearTimer]);
-
   const clearAllTimers = useCallback(() => {
     clearTransientTimers();
     clearTimer(statusClearTimerRef);
   }, [clearTimer, clearTransientTimers]);
-
   const clearStatus = useCallback(() => {
     clearPersistedAuthStatus();
     setStatus(null);
   }, []);
-
   const updateStatus = useCallback((nextStatus) => {
     setStatus((currentStatus) => {
       if (!nextStatus) {
         return null;
       }
-
       if (isEquivalentAuthStatus(currentStatus, nextStatus)) {
         return currentStatus;
       }
-
       if (!currentStatus) {
         return nextStatus;
       }
-
       return resolveStatusPriority(nextStatus) >=
         resolveStatusPriority(currentStatus)
         ? nextStatus
         : currentStatus;
     });
   }, []);
-
   const scheduleStatusClear = useCallback(
     ({ duration = STATUS_CLEAR_DURATION, clearWhen = [] } = {}) => {
       clearTimer(statusClearTimerRef);
-
       const clearTypes = Array.isArray(clearWhen)
         ? clearWhen.filter(Boolean)
         : [];
-
       statusClearTimerRef.current = setTimeout(() => {
         statusClearTimerRef.current = null;
-
         setStatus((currentStatus) => {
           if (!currentStatus) {
             return currentStatus;
           }
-
           if (
             clearTypes.length === 0 ||
             clearTypes.includes(currentStatus.type)
@@ -1128,59 +979,52 @@ export function useNavigationStatus() {
             clearPersistedAuthStatus();
             return null;
           }
-
           return currentStatus;
         });
       }, duration);
     },
     [clearTimer],
   );
-
   const dispatchOfflineEvent = useCallback(() => {
     clearTimer(offlineDispatchTimerRef);
-
     offlineDispatchTimerRef.current = setTimeout(() => {
       offlineDispatchTimerRef.current = null;
       window.dispatchEvent(new Event("offline"));
     }, 0);
   }, [clearTimer]);
-
   const handleOffline = useCallback(() => {
     updateStatus(createConnectionStatus("OFFLINE"));
   }, [updateStatus]);
-
   const handleOnline = useCallback(() => {
     setStatus((currentStatus) => {
       if (currentStatus?.type !== "OFFLINE") {
         return null;
       }
-
       clearTimer(onlineResetTimerRef);
-
       onlineResetTimerRef.current = setTimeout(() => {
         onlineResetTimerRef.current = null;
         setStatus((nextStatus) =>
           nextStatus?.type === "ONLINE" ? null : nextStatus,
         );
       }, STATUS_CLEAR_DURATION);
-
       return createConnectionStatus("ONLINE");
     });
   }, [clearTimer]);
-
   usePersistedAuthStatusRestoration({
     scheduleStatusClear,
     setStatus,
     skipPersistedStatusCleanupRef,
   });
-  usePersistedAuthStatusCleanup({ skipPersistedStatusCleanupRef, status });
+  usePersistedAuthStatusCleanup({
+    skipPersistedStatusCleanupRef,
+    status,
+  });
   useRouteErrorStatusCleanup({
     dispatchOfflineEvent,
     pathname,
     previousPathRef,
     setStatus,
   });
-
   useNavigationStatusEventSubscriptions({
     apiErrorQueueRef,
     batchTimerRef,
@@ -1197,21 +1041,17 @@ export function useNavigationStatus() {
     updateStatus,
   });
   useNavigationStatusTimerCleanup(clearAllTimers);
-
   return status;
 }
-
 export function applyStatusOverlay(item, statusState) {
   if (!item || !statusState) {
     return item;
   }
-
   const showStatusActions =
     statusState.type === "APP_ERROR" ||
     statusState.type === "API_ERROR" ||
     statusState.type === "GUARD" ||
     Boolean(statusState.action);
-
   return {
     ...item,
     ...statusState,

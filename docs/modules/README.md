@@ -1,11 +1,10 @@
 # Platform modules
 
-The template includes two reusable layers:
+The template includes three reusable layers:
 
 - Identity core: `auth` and `account`, backed by Supabase.
 - UI runtime: `registry`, `background`, `loading`, `modal`, `notification`, `context-menu`,
   `controls`, `error-boundary` and `nav`.
-- Development tooling: experimental, read-only `platform-inspector`.
 
 Registry is the descriptor seam. Product features publish route-scoped definitions; the owning
 runtime resolves lifecycle and presentation. Product code must not be imported into a module.
@@ -20,43 +19,90 @@ shared events + UI primitives
     → nav → background + loading
     → controls
   → notification
-  → platform-inspector → platform UI runtime snapshots (development only)
 ```
 
-Auth/Account and the UI runtime do not import each other. Their optional coordination belongs in
-`src/app/_composition` through event bridges and Registry entries.
+Auth/Account and the UI runtime do not import each other. Domain-owned integrations publish their
+descriptors and actions, while `src/app/providers.js` mounts them at the composition root.
 
 ## Public interface model
 
-`src/modules/catalog.js` is the executable source of truth for every module's dependencies,
-documentation and supported entrypoints. A file that is not declared there is an implementation
-detail; consumers outside its owning module must not import it directly.
+Every module has one root facade. Auth and Account add a
+`server.js` interface because they own real server trust boundaries; every other file is an internal
+implementation detail.
 
-| Import shape                        | Runtime     | Stability     | Use                                                                   |
-| ----------------------------------- | ----------- | ------------- | --------------------------------------------------------------------- |
-| `@/modules/<name>`                  | Client      | Stable        | Providers, hooks, components and browser operations                   |
-| `@/modules/<name>/contract`         | Universal   | Stable        | Constants, normalization, policies and serializable value contracts   |
-| `@/modules/<name>/server`           | Server only | Stable        | Request-scoped reads, protected mutations and server trust boundaries |
-| `@/modules/<name>/experimental`     | Declared    | Experimental  | Opt-in APIs whose compatibility is not guaranteed                     |
-| Any other `@/modules/<name>/*` path | Internal    | Not supported | Only code inside the owning module                                    |
+| Import shape                        | Runtime     | Use                                                                   |
+| ----------------------------------- | ----------- | --------------------------------------------------------------------- |
+| `@/modules/<name>`                  | Client      | Providers, hooks, components and browser operations                   |
+| `@/modules/<name>/server`           | Server only | Request-scoped reads, protected mutations and server trust boundaries |
+| Any other `@/modules/<name>/*` path | Internal    | Only code and colocated tests inside the owning module                |
 
-Not every module needs every entrypoint. Add a seam only when the module has a real client,
-universal or server contract to expose. This keeps the public surface smaller than the file tree.
+Do not add public entrypoints for file categories such as contracts, utilities or experimental
+features. Put shared behavior in a responsibility-named internal file and expose only the smallest
+supported interface from `index.js` or `server.js`.
 
-Stable interfaces require a deliberate compatibility decision before an export is removed or
-renamed. Experimental interfaces may evolve, but their use must stay explicit at the import site.
-`platform-inspector` is the intentional exception to the stable-root convention: the whole module
-is development-only and its root entrypoint is marked experimental in the catalog.
+Published interfaces require a deliberate compatibility decision before an export is removed or
+renamed.
 
-## Changing a module interface
+## Internal organization
 
-1. Update the implementation and, when needed, add the entrypoint to `src/modules/catalog.js`.
-2. Run `npm run modules:check` to validate dependency direction, runtime boundaries and deep imports.
-3. Review the reported export delta. If it is intentional, run `npm run modules:snapshot`.
-4. Commit `src/modules/public-exports.json` with the interface change and update the module guide.
+Use the same names for the same responsibilities. A module needs only the files its behavior
+actually requires; the vocabulary is shared, the file count is not prescribed.
 
-`modules:snapshot` is an approval step, not a generic repair command: its diff is the reviewable API
-change record. CI runs `modules:check` and fails when code and snapshot diverge.
+| File                                       | Responsibility                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `index.js`                                 | Supported client exports and, where cohesive, the module's primary renderer |
+| `constants.js`                             | Immutable configuration values, enumerations and static options             |
+| `utils.js`                                 | Pure helper functions, normalization, formatters and guards                 |
+| `provider.js`                              | React contexts, provider composition, actions and subscription lifecycle    |
+| `server.js`                                | Server-only operations across a real trust boundary                         |
+| `motion.js`                                | Motion policy, animation variants and transition parameters                 |
+| `runtime.js`                               | Stateful services such as external stores, transactions and diagnostics     |
+| `schema.js`                                | Validations, descriptor contracts and metadata schemas                      |
+| `layout.js`                                | Geometry, measurements and visual layout calculations                       |
+| `resolver.js`, `routing.js`, `handlers.js` | Resolution, routing or descriptor application owned by that module          |
+
+- Use kebab-case filenames. Inside a module, use relative imports; across modules, use
+  `@/modules/<name>` or its supported server entrypoint. Implementation imports must stay acyclic.
+- List public exports explicitly. Moving an internal implementation must not add or remove exports.
+  Do not route exports through unrelated implementation files.
+- Keep normalization beside the feature it describes. Nav routing owns path comparisons; media owns
+  time labels; layout owns card geometry. A generic helper file must not become a second feature layer.
+- Share code when the responsibility and behavior match. Similar-looking contexts can intentionally
+  be strict, optional or have fallback actions; retain those distinct contracts.
+- Keep timer handles, subscription disposal, source/instance identity and delayed cleanup with their
+  lifecycle owner. Preserve synchronous versus deferred behavior during simplification.
+- Add a file only for a distinct responsibility that needs independent ownership. Avoid empty
+  `hooks`, `config`, `utils` or one-function facade files added only to match another module.
+- Keep code sections in dependency order: imports, local defaults/model, implementation, public
+  composition. Comments explain lifecycle constraints and compatibility decisions.
+
+### Module responsibility map
+
+| Module             | Organization decision                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Account            | Profile normalization, injected-client provider and server operations stay separate                         |
+| Auth               | Explicit facade; browser operations, session provider, configuration and server verification stay separate  |
+| Background         | Pure visual model, provider/video lifecycle and overlay                                                     |
+| Context menu       | Candidate/item resolution, provider/native listeners and menu presentation                                  |
+| Controls           | Pair resolution and geometry in layout; DOM observation and rails in the renderer; no provider needed       |
+| Error boundary     | React boundary, browser listener and reporter remain independent                                            |
+| Loading            | Provider owns minimum-duration timers; the small overlay stays in the facade                                |
+| Modal              | Provider owns stack and completion promises; config, motion and portal presentation stay distinct           |
+| Nav                | Provider composes domain-independent features; runtime stores and responsibility-named helpers are separate |
+| Notification       | Provider owns persistence/timers; toast owns message policy; motion exports come directly from motion       |
+| Registry           | Schema owns metadata; handlers own application/cleanup; adapters and hooks consume these without cycles     |
+
+## Adding a module
+
+1. Define its responsibility and supported root interface. Add a server interface only when needed.
+2. Follow the internal vocabulary above without scaffolding unused files.
+3. Test the observable contract, including cleanup where the module owns effects. Use public interfaces
+   for cross-module tests and colocated tests for private behavior.
+4. Run `npm test`, `npm run lint` and `npm run build`. Update the guide in `docs/modules`.
+
+Node tests stub Next.js navigation and headers. They verify pure contracts and initial server-rendered
+provider snapshots, not live navigation or Supabase delivery. Check affected interactions separately
+in the browser and verify real provider flows when those integrations change.
 
 ## Guides
 
@@ -71,4 +117,3 @@ change record. CI runs `modules:check` and fails when code and snapshot diverge.
 - [Controls](./controls.md)
 - [Error boundary](./error-boundary.md)
 - [Navigation](./nav.md)
-- [Platform inspector](./platform-inspector.md)

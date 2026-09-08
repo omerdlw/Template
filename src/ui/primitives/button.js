@@ -4,7 +4,7 @@ import { forwardRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import * as Toggle from "@radix-ui/react-toggle";
 import { cn } from "@/shared/utils";
-import { resolveSlotClasses } from "./primitive-support";
+import { resolveSlotClasses } from "./utils";
 import {
   DESTRUCTIVE_ACTION_TONE_CLASS,
   INFO_ACTION_TONE_CLASS,

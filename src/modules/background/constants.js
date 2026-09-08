@@ -1,0 +1,53 @@
+export const DEFAULT_BACKGROUND = Object.freeze({
+  overlayOpacity: 0,
+  overlayColor: "var(--black)",
+  position: "center",
+  videoOptions: {
+    playbackRate: 1,
+    autoplay: true,
+    muted: true,
+    loop: false,
+    corp: 0,
+    width: null,
+    className: "",
+  },
+  videoElement: null,
+  videoStyle: {},
+  videoClassName: "",
+  className: "",
+  width: null,
+  fit: null,
+  fadeEdges: null,
+  imageStyle: {},
+  noiseStyle: {},
+  overlay: false,
+  image: null,
+  video: null,
+  isPlaying: false,
+  animation: null,
+});
+
+export const BG_TO_OBJECT_CLASS_MAP = Object.freeze({
+  "bg-contain": "object-contain",
+  "bg-cover": "object-cover",
+  "bg-fill": "object-fill",
+  "bg-none": "object-none",
+  "bg-scale-down": "object-scale-down",
+  "bg-center": "object-center",
+  "bg-top": "object-top",
+  "bg-bottom": "object-bottom",
+  "bg-left": "object-left",
+  "bg-right": "object-right",
+  "bg-left-top": "object-left-top",
+  "bg-left-bottom": "object-left-bottom",
+  "bg-right-top": "object-right-top",
+  "bg-right-bottom": "object-right-bottom",
+});
+
+export const FIT_TO_OBJECT_CLASS_MAP = Object.freeze({
+  contain: "object-contain",
+  cover: "object-cover",
+  fill: "object-fill",
+  none: "object-none",
+  "scale-down": "object-scale-down",
+});

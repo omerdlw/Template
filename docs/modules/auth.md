@@ -7,22 +7,21 @@ or Account lifecycle.
 ## Boundary
 
 Auth may depend on shared code and the Supabase infrastructure adapters. It must not import Account,
-product domains or App composition. Account coordination belongs in `src/app/_composition`, where a
-verified Auth identity is translated into Account's input interface.
+product domains or App composition. `src/app/providers.js` translates verified Auth identity into
+Account's input interface and mounts domain-owned UI integrations.
 
 Never authorize from `user_metadata`, browser context or raw `getSession()` output. Server trust is
 established through verified claims and the server-only guards.
 
-## Public entrypoints
+## Public interfaces
 
-| Import                    | Runtime     | Use                                                              |
-| ------------------------- | ----------- | ---------------------------------------------------------------- |
-| `@/modules/auth`          | Client      | Provider, hooks, browser auth operations and callback URL helper |
-| `@/modules/auth/contract` | Universal   | Routes, OAuth providers, email normalization and safe next paths |
-| `@/modules/auth/server`   | Server only | Origin, identity, AAL2, recent-auth and audit boundaries         |
+| Import                  | Runtime     | Use                                                              |
+| ----------------------- | ----------- | ---------------------------------------------------------------- |
+| `@/modules/auth`        | Client      | Provider, hooks, browser auth operations and callback URL helper |
+| `@/modules/auth/server` | Server only | Validation, identity, AAL2, recent-auth and audit boundaries     |
 
 All other files are internal. In particular, consumers should not couple themselves to
-`client.js`, `provider.js` or `config.js`.
+`client.js`, `provider.js`, `constants.js` or `utils.js`.
 
 ## Client setup
 
@@ -50,6 +49,8 @@ directly.
 | Authenticator assurance level 2 required | `requireAal2`                 |
 | Fresh authentication required            | `requireRecentAuthentication` |
 | Same-origin mutation check               | `assertSameOrigin`            |
+| Normalize an email address               | `normalizeEmail`              |
+| Sanitize a redirect target               | `sanitizeNextPath`            |
 | Server-side security event               | `recordAuthEvent`             |
 
 Pass a request-scoped Supabase client to server helpers. Route Handlers own browser/external
@@ -67,8 +68,15 @@ protocols such as callbacks; Server Actions own first-party form mutations.
 ## Verification
 
 ```bash
-npm run modules:check
 npm test
 npx eslint src/modules/auth docs/modules/auth.md
+npx prettier --check src/modules/auth docs/modules/auth.md
+```
+
+## Doğrulama
+
+```bash
+npm test
+npx eslint src/modules/auth
 npx prettier --check src/modules/auth docs/modules/auth.md
 ```

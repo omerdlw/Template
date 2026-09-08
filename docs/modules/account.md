@@ -11,15 +11,14 @@ data access through explicit interfaces. Universal account migrations own only t
 `profiles` lifecycle; orders, metrics, tabs and other product concepts stay under `src/domains` and
 project-owned migrations.
 
-## Public entrypoints
+## Public interfaces
 
-| Import                       | Runtime     | Use                                                          |
-| ---------------------------- | ----------- | ------------------------------------------------------------ |
-| `@/modules/account`          | Client      | `AccountProvider`, `useAccount` and universal value helpers  |
-| `@/modules/account/contract` | Universal   | Username/profile normalization and public-profile projection |
-| `@/modules/account/server`   | Server only | Request-scoped reads, updates and lifecycle operations       |
+| Import                     | Runtime     | Use                                                       |
+| -------------------------- | ----------- | --------------------------------------------------------- |
+| `@/modules/account`        | Client      | `AccountProvider`, `useAccount` and profile value helpers |
+| `@/modules/account/server` | Server only | Request-scoped reads, updates and lifecycle operations    |
 
-All other files are internal. Consumers should not import `provider.js` directly.
+All other files, including `utils.js`, are internal. Consumers should not import them directly.
 
 ## Client composition
 
@@ -56,7 +55,7 @@ Auth verification, the Supabase Admin API and cross-domain cascade behavior.
 ## Invariants
 
 - `userId` always comes from verified server identity, never request body or `user_metadata`.
-- Profile normalization is shared through the universal contract so client and server agree.
+- Profile normalization has one internal implementation shared by the client and server facades.
 - Username validation and reservation remain atomic in the database operation.
 - Account does not cache Auth state or create its own Supabase client.
 - Product extensions are passed into the shell as data or React nodes; Account does not import them.
@@ -65,8 +64,15 @@ Auth verification, the Supabase Admin API and cross-domain cascade behavior.
 ## Verification
 
 ```bash
-npm run modules:check
 npm test
 npx eslint src/modules/account docs/modules/account.md
+npx prettier --check src/modules/account docs/modules/account.md
+```
+
+## Doğrulama
+
+```bash
+npm test
+npx eslint src/modules/account
 npx prettier --check src/modules/account docs/modules/account.md
 ```

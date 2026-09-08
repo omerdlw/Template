@@ -4,7 +4,6 @@ const NAV_EASINGS = Object.freeze({
   SOFT: Object.freeze([0.22, 1, 0.36, 1]),
   EXIT: Object.freeze([0.7, 0, 0.84, 0]),
 });
-
 const NAV_TIERS = Object.freeze({
   MICRO: {
     duration: 0.24,
@@ -12,21 +11,18 @@ const NAV_TIERS = Object.freeze({
     scaleDelta: 0.008,
     ease: NAV_EASINGS.EMPHASIZED,
   },
-
   FAST: {
     duration: 0.44,
     distance: 9,
     scaleDelta: 0.012,
     ease: NAV_EASINGS.EMPHASIZED,
   },
-
   STANDARD: {
     duration: 0.66,
     distance: 18,
     scaleDelta: 0.018,
     ease: NAV_EASINGS.SOFT,
   },
-
   SURFACE: {
     duration: 0.96,
     distance: 28,
@@ -34,7 +30,6 @@ const NAV_TIERS = Object.freeze({
     ease: NAV_EASINGS.CINEMATIC,
   },
 });
-
 const NAV_SPRINGS = Object.freeze({
   PRESS: Object.freeze({
     type: "spring",
@@ -54,7 +49,6 @@ const NAV_SPRINGS = Object.freeze({
     damping: 24,
     mass: 0.8,
   }),
-
   PEEK: Object.freeze({
     type: "spring",
     stiffness: 150,
@@ -62,235 +56,200 @@ const NAV_SPRINGS = Object.freeze({
     mass: 0.85,
   }),
 });
-
 const NAV_STAGGER_TIMINGS = Object.freeze({
   EXPAND: 0.068,
-  COLLAPSE: 0.042,
+  COLLAPSE: 0.052,
   PEEK: 0.078,
   STANDARD: 0.06,
   FAST: 0.042,
 });
 
+export const NAV_SURFACE_CHOREOGRAPHY_TIMINGS = Object.freeze({
+  ACTION_DISMISS_MS: 260,
+  ACTION_DISMISS_SETTLE_MS: 100,
+  HEADER_SWAP_MS: 640,       // motion.js'teki gerçek animasyon süresiyle eşleşmeli
+  HEADER_SWAP_SETTLE_MS: 40, // artık animasyonu kesmiyor, sadece paint tamponu
+  BODY_ENTER_MS: 840,
+  BODY_EXIT_MS: 620,
+  BODY_COLLAPSE_SETTLE_MS: 140,
+  HEADER_RESTORE_MS: 640,    // aynı mantık
+  RESTORE_SETTLE_MS: 40,
+});
 const NAV_STAGGER_DELAY = NAV_STAGGER_TIMINGS.STANDARD;
-
-/**
- * Scale applied while pressing navigation controls.
- * @type {number}
- */
 const NAV_TAP_SCALE = 0.98;
-
-/**
- * Shared spring transition for navigation controls.
- * @type {Readonly<object>}
- */
 const NAV_BUTTON_TRANSITION = NAV_SPRINGS.PRESS;
-
-/**
- * Shared spring transition for navigation cards.
- * @type {Readonly<object>}
- */
 const NAV_CARD_SPRING = NAV_SPRINGS.DECK;
-
 const NAV_CARD_EXPAND_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.84,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_STACK_TRANSITION = Object.freeze({
   type: "tween",
   duration: NAV_TIERS.STANDARD.duration,
   ease: NAV_EASINGS.SOFT,
 });
-
 const NAV_CARD_TRANSITION = Object.freeze({
   type: "tween",
   duration: NAV_TIERS.STANDARD.duration,
   ease: NAV_EASINGS.EMPHASIZED,
 });
-
 const NAV_CARD_COLLAPSE_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.62,
   ease: NAV_EASINGS.EXIT,
 });
-
 const NAV_PEEK_SPRING = NAV_SPRINGS.PEEK;
-
 const NAV_SURFACE_TRANSITION = Object.freeze({
   type: "tween",
   duration: NAV_TIERS.SURFACE.duration,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_ACTION_DISMISS_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.26,
   ease: NAV_EASINGS.EXIT,
 });
-
 const NAV_HEADER_SWAP_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.64,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_SURFACE_BODY_ENTER_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.84,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_SURFACE_BODY_EXIT_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.62,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_SURFACE_EXTENSIONS_ENTER_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.54,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_SURFACE_EXTENSIONS_EXIT_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.38,
   ease: NAV_EASINGS.EXIT,
 });
-
 const NAV_CARD_HEIGHT_OPEN_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.84,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_CARD_HEIGHT_CLOSE_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.62,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
 const NAV_BACKDROP_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.66,
   ease: NAV_EASINGS.SOFT,
 });
-
-/**
- * Shared transition for navigation fades.
- * @type {Readonly<object>}
- */
 const NAV_FADE_TRANSITION = Object.freeze({
   type: "tween",
   duration: NAV_TIERS.STANDARD.duration,
   ease: NAV_EASINGS.EMPHASIZED,
 });
-
 const NAV_TEXT_ENTER_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.62,
   ease: NAV_EASINGS.EMPHASIZED,
 });
-
 const NAV_TEXT_EXIT_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.38,
   ease: NAV_EASINGS.EXIT,
 });
-
 const NAV_ICON_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.48,
   ease: NAV_EASINGS.SOFT,
 });
-
 const NAV_STAGGER_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.62,
   ease: NAV_EASINGS.EMPHASIZED,
 });
-
-/**
- * Short transition for navigation micro-interactions.
- * @type {Readonly<object>}
- */
 const NAV_MICRO_TRANSITION = Object.freeze({
   type: "tween",
   duration: NAV_TIERS.MICRO.duration,
   ease: NAV_TIERS.MICRO.ease,
 });
-
 const NAV_BADGE_TRANSITION = NAV_SPRINGS.BADGE;
-
 const NAV_ACTIVE_INDICATOR_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.48,
   ease: NAV_EASINGS.SOFT,
 });
-
-/**
- * Entrance transition for navigation search results.
- * @type {Readonly<object>}
- */
 const NAV_RESULTS_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.79,
   ease: NAV_EASINGS.CINEMATIC,
 });
-
-/**
- * Exit transition for navigation search results.
- * @type {Readonly<object>}
- */
 const NAV_RESULTS_EXIT_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.48,
   ease: NAV_EASINGS.EXIT,
 });
-
-/**
- * Delay between navigation search-result entrances.
- * @type {number}
- */
 const NAV_RESULTS_STAGGER_DELAY = NAV_STAGGER_TIMINGS.STANDARD;
-
 const NAV_PEEK_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.72,
   ease: NAV_EASINGS.SOFT,
 });
-
 const NAV_SURFACE_DRAG_CONSTRAINTS = Object.freeze({
   top: 0,
   bottom: 0,
 });
-
 const NAV_SURFACE_DRAG_ELASTIC = Object.freeze({
   top: 0.05,
   bottom: 0.5,
 });
-
 const NAV_BREADCRUMBS_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.57,
   ease: NAV_EASINGS.EMPHASIZED,
 });
-
-const NAV_HUD_TRANSITION = NAV_FADE_TRANSITION;
-
+const NAV_HUD_TRANSITION = Object.freeze({
+  type: "tween",
+  duration: 0.66,
+  ease: NAV_EASINGS.CINEMATIC,
+});
+const NAV_COMPACT_CONTENT_TRANSITION = Object.freeze({
+  type: "tween",
+  duration: 0.48,
+  ease: NAV_EASINGS.EXIT,
+});
+const NAV_COMPACT_RESTORE_TRANSITION = Object.freeze({
+  type: "tween",
+  duration: 0.72,
+  ease: NAV_EASINGS.CINEMATIC,
+});
+const NAV_COMPACT_TITLE_ENTER_TRANSITION = Object.freeze({
+  type: "tween",
+  duration: 0.52,
+  delay: 0.56,
+  ease: NAV_EASINGS.EMPHASIZED,
+});
+const NAV_COMPACT_TITLE_EXIT_TRANSITION = Object.freeze({
+  type: "tween",
+  duration: 0.28,
+  ease: NAV_EASINGS.EXIT,
+});
 const NAV_SKELETON_PULSE_CLASS = "animate-pulse";
-
 const NAV_SCRUBBER_TOOLTIP_SPRING = Object.freeze({
   damping: 28,
   stiffness: 350,
 });
-
 const NAV_MEDIA_VOLUME_FILL_TRANSITION =
   "width 240ms cubic-bezier(0.16, 1, 0.3, 1)";
 const NAV_MEDIA_VOLUME_THUMB_POSITION_TRANSITION =
   "left 240ms cubic-bezier(0.16, 1, 0.3, 1)";
-
 const navMediaVolumeThumbVariants = Object.freeze({
   idle: Object.freeze({
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.5)",
@@ -301,37 +260,18 @@ const navMediaVolumeThumbVariants = Object.freeze({
     scale: 1.25,
   }),
 });
-
-/**
- * Shared raster-stability hints for animated Nav roots.
- *
- * Motion promotes active transform/opacity animations when it can. Keeping a
- * permanent `will-change` hint on every Nav layer exhausts GPU memory and can
- * introduce competing compositing contexts around backdrop-filter surfaces.
- * @type {Readonly<CSSStyleDeclaration>}
- */
 const NAV_COMPOSITOR_STYLE = Object.freeze({
   WebkitBackfaceVisibility: "hidden",
   backfaceVisibility: "hidden",
   WebkitFontSmoothing: "antialiased",
 });
-
 function toGpuTransform(y = 0, scale = 1) {
   const safeY = Number.parseFloat(y);
   const safeScale = Number.parseFloat(scale);
-
-  return `translate3d(0, ${
-    Number.isFinite(safeY) ? safeY : 0
-  }px, 0) scale(${Number.isFinite(safeScale) ? safeScale : 1})`;
+  return `translate3d(0, ${Number.isFinite(safeY) ? safeY : 0}px, 0) scale(${Number.isFinite(safeScale) ? safeScale : 1})`;
 }
-
 const navSurfaceDragTransformTemplate = ({ y, scale }) =>
   toGpuTransform(y, scale);
-
-/**
- * Motion variants for navigation action controls.
- * @type {Readonly<object>}
- */
 const navActionVariants = Object.freeze({
   idle: {
     transform: toGpuTransform(0, 1),
@@ -343,13 +283,11 @@ const navActionVariants = Object.freeze({
     transform: toGpuTransform(0, NAV_TAP_SCALE),
   },
 });
-
 function getNavActionMotionProps({
   disabled = false,
   reduceMotion = false,
 } = {}) {
   const canMove = !disabled && !reduceMotion;
-
   return {
     initial: false,
     animate: "idle",
@@ -358,29 +296,23 @@ function getNavActionMotionProps({
     transition: NAV_BUTTON_TRANSITION,
   };
 }
-
 function getNavMediaVolumeFillTransition({ isDragging = false } = {}) {
   return isDragging ? "none" : NAV_MEDIA_VOLUME_FILL_TRANSITION;
 }
-
 function getNavMediaVolumeThumbAnimateProps({ isDragging = false } = {}) {
   return isDragging
     ? navMediaVolumeThumbVariants.dragging
     : navMediaVolumeThumbVariants.idle;
 }
-
 function getNavMediaVolumeThumbPositionTransition({ isDragging = false } = {}) {
   return isDragging ? "none" : NAV_MEDIA_VOLUME_THUMB_POSITION_TRANSITION;
 }
-
 function buildVariants(tierName, { distanceScale = 0 } = {}) {
   const tier = NAV_TIERS[tierName];
   const distance = Math.round(tier.distance * distanceScale);
-
   const hidden = {
     opacity: 0,
   };
-
   const visible = {
     opacity: 1,
     transition: {
@@ -388,7 +320,6 @@ function buildVariants(tierName, { distanceScale = 0 } = {}) {
       ease: tier.ease,
     },
   };
-
   const exit = {
     opacity: 0,
     transition: {
@@ -396,7 +327,6 @@ function buildVariants(tierName, { distanceScale = 0 } = {}) {
       ease: NAV_EASINGS.EXIT,
     },
   };
-
   if (distance) {
     hidden.transform = toGpuTransform(distance, 1 - tier.scaleDelta);
     visible.transform = toGpuTransform(0);
@@ -405,34 +335,21 @@ function buildVariants(tierName, { distanceScale = 0 } = {}) {
       1 - tier.scaleDelta * 0.6,
     );
   }
-
   return Object.freeze({
     hidden,
     visible,
     exit,
   });
 }
-
-/**
- * Motion variants for surface slide-and-fade transitions.
- * @type {Readonly<object>}
- */
 const slideFadeVariants = buildVariants("SURFACE", {
   distanceScale: 0,
 });
-
-/**
- * Motion variants for navigation text crossfades.
- * @type {Readonly<object>}
- */
 const textCrossfadeVariants = buildVariants("STANDARD", {
   distanceScale: 0.42,
 });
-
 const staggerItemVariants = buildVariants("FAST", {
   distanceScale: 0.75,
 });
-
 const navHeaderSwapVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -455,7 +372,6 @@ const navHeaderSwapVariants = Object.freeze({
     },
   },
 });
-
 const navHeaderRestoreVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -478,7 +394,6 @@ const navHeaderRestoreVariants = Object.freeze({
     },
   },
 });
-
 const navSurfaceControlsVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -502,7 +417,6 @@ const navSurfaceControlsVariants = Object.freeze({
     },
   },
 });
-
 const navCommandBarSwapVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -527,7 +441,6 @@ const navCommandBarSwapVariants = Object.freeze({
     },
   }),
 });
-
 const navSurfaceBodyVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -550,7 +463,6 @@ const navSurfaceBodyVariants = Object.freeze({
     },
   },
 });
-
 const navSurfaceExtensionsVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -573,7 +485,6 @@ const navSurfaceExtensionsVariants = Object.freeze({
     },
   },
 });
-
 const navActionDismissVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -596,14 +507,8 @@ const navActionDismissVariants = Object.freeze({
     },
   },
 });
-
-/**
- * Motion variants for staggered navigation list items.
- * @type {Readonly<object>}
- */
 const navListItemVariants = Object.freeze({
   hidden: staggerItemVariants.hidden,
-
   visible: (index = 0) => ({
     ...staggerItemVariants.visible,
     transition: {
@@ -614,44 +519,34 @@ const navListItemVariants = Object.freeze({
       ),
     },
   }),
-
   exit: {
     ...staggerItemVariants.exit,
-
     transition: {
       ...NAV_TEXT_EXIT_TRANSITION,
     },
   },
 });
-
-/**
- * Motion variants for general navigation content fades.
- * @type {Readonly<object>}
- */
 const navFadeVariants = Object.freeze({
   hidden: {
     opacity: 0,
     transform: toGpuTransform(12, 0.98),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0),
+    transition: NAV_TEXT_ENTER_TRANSITION,
   },
-
   exit: {
     opacity: 0,
     transform: toGpuTransform(-8, 0.99),
     transition: NAV_TEXT_EXIT_TRANSITION,
   },
 });
-
 const navIconVariants = Object.freeze({
   hidden: {
     opacity: 0,
     transform: toGpuTransform(0, 0.88),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0, 1),
@@ -660,7 +555,6 @@ const navIconVariants = Object.freeze({
       ease: NAV_EASINGS.SOFT,
     },
   },
-
   exit: {
     opacity: 0,
     transform: toGpuTransform(0, 0.88),
@@ -670,79 +564,83 @@ const navIconVariants = Object.freeze({
     },
   },
 });
-
 const navBadgeVariants = Object.freeze({
   hidden: {
     opacity: 0,
     transform: toGpuTransform(0, 0.78),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0),
   },
-
   exit: {
     opacity: 0,
     transform: toGpuTransform(0, 0.82),
   },
 });
-
 const navBackdropVariants = Object.freeze({
   hidden: {
     opacity: 0,
   },
-
   visible: {
     opacity: 1,
   },
-
   exit: {
     opacity: 0,
   },
 });
-
 const navBreadcrumbsVariants = Object.freeze({
   hidden: {
     opacity: 0,
     transform: toGpuTransform(-10, 0.96),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0),
   },
-
   exit: {
     opacity: 0,
     transform: toGpuTransform(-6, 0.98),
   },
 });
-
 const navHudVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: toGpuTransform(10, 0.98),
+    transform: toGpuTransform(14, 0.975),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0),
+    transition: NAV_HUD_TRANSITION,
   },
-
   exit: {
     opacity: 0,
-    transform: toGpuTransform(8, 0.99),
+    transform: toGpuTransform(-6, 0.99),
+    transition: NAV_TEXT_EXIT_TRANSITION,
   },
 });
-
+const navCompactTitleVariants = Object.freeze({
+  hidden: {
+    opacity: 0,
+    transform: toGpuTransform(8, 0.98),
+  },
+  visible: {
+    opacity: 1,
+    transform: toGpuTransform(0),
+    transition: NAV_COMPACT_TITLE_ENTER_TRANSITION,
+  },
+  exit: {
+    opacity: 0,
+    transform: toGpuTransform(-6, 0.99),
+    transition: NAV_COMPACT_TITLE_EXIT_TRANSITION,
+  },
+});
 function getNavDescriptionVariants(targetOpacity = 0.7) {
   return {
     hidden: {
       opacity: 0,
       transform: toGpuTransform(8, 0.99),
     },
-
     visible: {
       opacity: targetOpacity,
       transform: toGpuTransform(0),
@@ -751,7 +649,6 @@ function getNavDescriptionVariants(targetOpacity = 0.7) {
         ease: NAV_EASINGS.EMPHASIZED,
       },
     },
-
     exit: {
       opacity: 0,
       transform: toGpuTransform(-5, 0.99),
@@ -762,14 +659,12 @@ function getNavDescriptionVariants(targetOpacity = 0.7) {
     },
   };
 }
-
 function getNavActionStaggerTransition(index = 0) {
   return {
     ...NAV_STAGGER_TRANSITION,
     delay: Math.min(Math.max(Number(index) || 0, 0) * NAV_STAGGER_DELAY, 0.42),
   };
 }
-
 function getNavStackAnimateProps({
   width,
   height,
@@ -786,33 +681,25 @@ function getNavStackAnimateProps({
       0,
       Math.round(Number.isFinite(safeHeight) ? safeHeight : 0),
     ),
-
     transform: toGpuTransform(liftAmount),
-
     opacity: isFullscreen ? 0 : 1,
-
     pointerEvents: isFullscreen ? "none" : "auto",
   };
 }
-
 function getNavCardDelay({
   expanded = false,
   isStackHovered = false,
   position = 0,
 } = {}) {
   const safePosition = Math.max(0, Number(position) || 0);
-
   if (expanded && safePosition > 0) {
     return Math.min(safePosition * NAV_STAGGER_TIMINGS.EXPAND, 0.42);
   }
-
   if (isStackHovered && safePosition > 0) {
     return Math.min((safePosition - 1) * NAV_STAGGER_TIMINGS.PEEK, 0.32);
   }
-
   return 0;
 }
-
 function getNavItemAnimateValues({
   motionValues,
   expanded = false,
@@ -820,79 +707,103 @@ function getNavItemAnimateValues({
   position = 0,
 } = {}) {
   if (!motionValues) return {};
-
   const safePosition = Math.max(0, Number(position) || 0);
-
-  // The preview offset belongs to the collapsed deck only. A focused input can
-  // restore hover after a tab/app switch, but expanded cards must retain their
-  // exact fixed stack spacing in that case.
   const isHoveredOffset = !expanded && isStackHovered && safePosition > 0;
-
   const peekProgress = Math.min(safePosition / 3, 1);
-
   const peekOffset = NAV_TIERS.MICRO.distance * (0.85 + peekProgress * 0.35);
-
   const peekScale = NAV_TIERS.MICRO.scaleDelta * (1 - peekProgress * 0.25);
-
   const y = isHoveredOffset
     ? motionValues.y - safePosition * peekOffset
     : motionValues.y;
-
   const scale = isHoveredOffset
     ? motionValues.scale * (1 + peekScale)
     : motionValues.scale;
-
   return {
     transform: toGpuTransform(y, scale),
     opacity: motionValues.opacity,
   };
 }
-
 function getNavItemTransition({
   expanded = false,
   isStackHovered = false,
+  isRestoringDeck = false,
   position = 0,
   delay = 0,
 } = {}) {
-  const baseTransition =
-    !expanded && isStackHovered && position > 0
+  const safePosition = Math.max(0, Number(position) || 0);
+  const baseTransition = isRestoringDeck
+    ? NAV_COMPACT_RESTORE_TRANSITION
+    : !expanded && isStackHovered && safePosition > 0
       ? NAV_PEEK_TRANSITION
       : NAV_CARD_TRANSITION;
-
   return {
     ...baseTransition,
-    delay,
+    delay:
+      (Number(delay) || 0) +
+      (isRestoringDeck
+        ? Math.min(safePosition * NAV_STAGGER_TIMINGS.EXPAND, 0.16)
+        : 0),
   };
 }
-
+function getNavItemCompactRestoreValues({ motionValues, position = 0 } = {}) {
+  if (!motionValues) return {};
+  const safePosition = Math.max(0, Number(position) || 0);
+  if (safePosition === 0)
+    return getNavItemAnimateValues({
+      motionValues,
+    });
+  return {
+    opacity: 0,
+    transform: toGpuTransform(0, 0.975 - Math.min(safePosition * 0.006, 0.018)),
+  };
+}
+function getNavItemCompactExitValues({ position = 0 } = {}) {
+  const safePosition = Math.max(0, Number(position) || 0);
+  return {
+    opacity: 0,
+    transform: toGpuTransform(0, 0.98 - Math.min(safePosition * 0.008, 0.024)),
+    transition: {
+      ...NAV_CARD_COLLAPSE_TRANSITION,
+      delay: Math.min(
+        Math.max(2 - safePosition, 0) * NAV_STAGGER_TIMINGS.COLLAPSE,
+        0.08,
+      ),
+    },
+  };
+}
 function getNavCardContentAnimateProps({
   compact = false,
   expanded = false,
   position = 0,
 } = {}) {
   const isHidden = compact || (!expanded && position > 0);
-
   return {
     opacity: isHidden ? 0 : 1,
-
     transform: toGpuTransform(
       isHidden ? NAV_TIERS.STANDARD.distance * 0.35 : 0,
-
       isHidden ? 1 - NAV_TIERS.MICRO.scaleDelta : 1,
     ),
   };
 }
-
+function getNavCardContentTransition({
+  compact = false,
+  isRestoringFromCompact = false,
+} = {}) {
+  if (compact) return NAV_COMPACT_CONTENT_TRANSITION;
+  if (!isRestoringFromCompact) return NAV_TEXT_ENTER_TRANSITION;
+  return {
+    ...NAV_TEXT_ENTER_TRANSITION,
+    delay: NAV_COMPACT_TITLE_EXIT_TRANSITION.duration + 0.06,
+  };
+}
 function getNavScrollProgressStyle(progress = 0) {
   const safeProgress = Math.min(Math.max(Number(progress) || 0, 0), 1);
-
   return {
     width: "100%",
     transformOrigin: "left center",
     transform: `scaleX(${safeProgress})`,
   };
 }
-
 const navSoundwaveBarVariants = Object.freeze({
   playing: (index) => ({
     transform: [
@@ -902,7 +813,6 @@ const navSoundwaveBarVariants = Object.freeze({
       toGpuTransform(0, 0.92),
       toGpuTransform(0, 0.3),
     ],
-
     transition: {
       duration: 1.28,
       repeat: Infinity,
@@ -910,34 +820,28 @@ const navSoundwaveBarVariants = Object.freeze({
       delay: Number(index) * 0.18,
     },
   }),
-
   paused: {
     transform: toGpuTransform(0, 0.3),
-
     transition: {
       duration: 0.44,
       ease: NAV_EASINGS.EXIT,
     },
   },
 });
-
 const navScrubberTooltipVariants = Object.freeze({
   hidden: {
     opacity: 0,
     transform: toGpuTransform(8, 0.94),
   },
-
   visible: {
     opacity: 1,
     transform: toGpuTransform(0),
   },
-
   exit: {
     opacity: 0,
     transform: toGpuTransform(6, 0.96),
   },
 });
-
 const NAV_SCRUBBER_TOOLTIP_TRANSITION = Object.freeze({
   type: "tween",
   duration: 0.31,
@@ -946,7 +850,6 @@ const NAV_SCRUBBER_TOOLTIP_TRANSITION = Object.freeze({
 const NAV_COMPACT_TO_SURFACE_DELAY_MS = 380;
 const NAV_SURFACE_HEADER_REVEAL_DELAY_MS = 220;
 const NAV_SURFACE_EXIT_SETTLE_MS = 520;
-
 export {
   NAV_EASINGS,
   NAV_TIERS,
@@ -985,6 +888,10 @@ export {
   NAV_SURFACE_DRAG_ELASTIC,
   NAV_BREADCRUMBS_TRANSITION,
   NAV_HUD_TRANSITION,
+  NAV_COMPACT_CONTENT_TRANSITION,
+  NAV_COMPACT_RESTORE_TRANSITION,
+  NAV_COMPACT_TITLE_ENTER_TRANSITION,
+  NAV_COMPACT_TITLE_EXIT_TRANSITION,
   NAV_SKELETON_PULSE_CLASS,
   NAV_SCRUBBER_TOOLTIP_SPRING,
   NAV_MEDIA_VOLUME_FILL_TRANSITION,
@@ -1017,13 +924,17 @@ export {
   navBackdropVariants,
   navBreadcrumbsVariants,
   navHudVariants,
+  navCompactTitleVariants,
   getNavDescriptionVariants,
   getNavActionStaggerTransition,
   getNavStackAnimateProps,
   getNavCardDelay,
   getNavItemAnimateValues,
   getNavItemTransition,
+  getNavItemCompactRestoreValues,
+  getNavItemCompactExitValues,
   getNavCardContentAnimateProps,
+  getNavCardContentTransition,
   getNavScrollProgressStyle,
   navSoundwaveBarVariants,
   navScrubberTooltipVariants,

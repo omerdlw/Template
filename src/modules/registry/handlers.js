@@ -7,14 +7,13 @@ import {
   normalizeRegistryMetadata,
   validateControlsConfig,
   validateNavConfig,
+  validateNavHudConfig,
   validateRegistryMetadata,
-} from "./contracts";
+} from "./schema";
 import { recordRegistryDiagnostic } from "./runtime";
-
 function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-
 function splitRegistryConfig(config, options = {}) {
   const definition = getRegistryDefinition(options.type) || {};
   const {
@@ -35,10 +34,8 @@ function splitRegistryConfig(config, options = {}) {
         Object.entries(config).filter(([key]) => key !== "registry"),
       )
     : config;
-
   const metadataValidation = validateRegistryMetadata(registryMeta);
   const metadataIsStrict = registryMeta.validation === "strict";
-
   if (!metadataValidation.valid) {
     recordRegistryDiagnostic({
       action: metadataIsStrict ? "reject" : "validation-warning",
@@ -48,7 +45,6 @@ function splitRegistryConfig(config, options = {}) {
       validation: metadataIsStrict ? "strict" : "warn",
     });
   }
-
   return {
     cleanupDelayMs,
     lifecycle,
@@ -60,20 +56,51 @@ function splitRegistryConfig(config, options = {}) {
     source,
   };
 }
-
 function isPersistentLifecycle(lifecycle) {
   return lifecycle === REGISTRY_LIFECYCLES.PERSISTENT;
 }
-
-// ── Built-in registry handlers ───────────────────────────────────────────────
-
-const backgroundPlugin = {
+function runRegistrationBatch(context, executor) {
+  if (typeof context.batch === "function") return context.batch(executor);
+  return executor(context);
+}
+function applyRegistrationEntries(type, registrations, context) {
+  if (registrations.length === 0) return;
+  const { instanceId, unregister } = context;
+  const cleanupScope = getCleanupScope(context);
+  runRegistrationBatch(context, (queue) => {
+    registrations.forEach(({ key, registerOptions, scope, source, value }) => {
+      clearCleanupTimer(
+        cleanupScope,
+        createCleanupKey(key, source, instanceId, scope),
+      );
+      queue.register(type, key, value, source, registerOptions);
+    });
+  });
+  return () => {
+    registrations.forEach(
+      ({ cleanupDelayMs, key, lifecycle, scope, source }) => {
+        if (isPersistentLifecycle(lifecycle)) return;
+        scheduleOrRunCleanup(
+          cleanupScope,
+          createCleanupKey(key, source, instanceId, scope),
+          () =>
+            unregister(type, key, {
+              source,
+              instanceId,
+              scope,
+            }),
+          cleanupDelayMs,
+        );
+      },
+    );
+  };
+}
+const backgroundHandler = {
   name: "background",
   apply: (config, context) => {
     const { instanceId, register, unregister } = context;
     const cleanupScope = getCleanupScope(context);
     const background = config?.background;
-
     if (background) {
       const {
         cleanupDelayMs,
@@ -84,7 +111,9 @@ const backgroundPlugin = {
         registerOptions,
         scope,
         source,
-      } = splitRegistryConfig(background, { type: REGISTRY_TYPES.BACKGROUND });
+      } = splitRegistryConfig(background, {
+        type: REGISTRY_TYPES.BACKGROUND,
+      });
       if (metadataInvalid && metadataIsStrict) return;
       const cleanupKey = createCleanupKey(
         REGISTRY_KEYS.BACKGROUND,
@@ -93,7 +122,6 @@ const backgroundPlugin = {
         scope,
       );
       clearCleanupTimer(cleanupScope, cleanupKey);
-
       register(
         REGISTRY_TYPES.BACKGROUND,
         REGISTRY_KEYS.BACKGROUND,
@@ -101,7 +129,6 @@ const backgroundPlugin = {
         source,
         registerOptions,
       );
-
       return () => {
         if (isPersistentLifecycle(lifecycle)) return;
         scheduleOrRunCleanup(
@@ -120,15 +147,13 @@ const backgroundPlugin = {
     }
   },
 };
-
-const contextMenuPlugin = {
+const contextMenuHandler = {
   name: "contextMenu",
   apply: (config, context) => {
     const { instanceId, pathname, register, unregister } = context;
     const cleanupScope = getCleanupScope(context);
     const contextMenu = config?.contextMenu;
     if (!contextMenu) return;
-
     const {
       cleanupDelayMs,
       lifecycle,
@@ -138,13 +163,13 @@ const contextMenuPlugin = {
       registerOptions,
       scope,
       source,
-    } = splitRegistryConfig(contextMenu, { type: REGISTRY_TYPES.CONTEXT_MENU });
+    } = splitRegistryConfig(contextMenu, {
+      type: REGISTRY_TYPES.CONTEXT_MENU,
+    });
     if (metadataInvalid && metadataIsStrict) return;
-
     const key = pathname || REGISTRY_KEYS.CONTEXT_MENU_CURRENT;
     const cleanupKey = createCleanupKey(key, source, instanceId, scope);
     clearCleanupTimer(cleanupScope, cleanupKey);
-
     register(
       REGISTRY_TYPES.CONTEXT_MENU,
       key,
@@ -152,7 +177,6 @@ const contextMenuPlugin = {
       source,
       registerOptions,
     );
-
     return () => {
       if (isPersistentLifecycle(lifecycle)) return;
       scheduleOrRunCleanup(
@@ -170,11 +194,10 @@ const contextMenuPlugin = {
     };
   },
 };
-
-const controlsPlugin = {
+const controlsHandler = {
   name: "controls",
   apply: (config, context) => {
-    const { batch, instanceId, pathname, register, unregister } = context;
+    const { pathname } = context;
     const controls = config?.controls;
     const controlConfigs = Array.isArray(controls)
       ? controls
@@ -182,7 +205,6 @@ const controlsPlugin = {
         ? [controls]
         : [];
     if (controlConfigs.length === 0) return;
-
     const registrations = controlConfigs.flatMap((controlConfig) => {
       const {
         cleanupDelayMs,
@@ -193,10 +215,11 @@ const controlsPlugin = {
         registerOptions,
         scope,
         source,
-      } = splitRegistryConfig(controlConfig, { type: REGISTRY_TYPES.CONTROLS });
+      } = splitRegistryConfig(controlConfig, {
+        type: REGISTRY_TYPES.CONTROLS,
+      });
       if (metadataInvalid && metadataIsStrict) return [];
       const validation = validateControlsConfig(payload);
-
       if (!validation.valid) {
         recordRegistryDiagnostic({
           action: "reject",
@@ -207,7 +230,6 @@ const controlsPlugin = {
         console.warn("[Registry] Invalid CONTROLS config:", validation.issues);
         return [];
       }
-
       const path = pathname || "/";
       return [
         {
@@ -216,87 +238,40 @@ const controlsPlugin = {
           lifecycle,
           scope,
           source,
-          value: { ...payload, path },
+          value: {
+            ...payload,
+            path,
+          },
           registerOptions,
         },
       ];
     });
-
-    if (registrations.length === 0) return;
-
-    const cleanupScope = getCleanupScope(context);
-    const registerAll = (queue) => {
-      registrations.forEach(
-        ({ key, registerOptions, scope, source, value }) => {
-          clearCleanupTimer(
-            cleanupScope,
-            createCleanupKey(key, source, instanceId, scope),
-          );
-          queue.register(
-            REGISTRY_TYPES.CONTROLS,
-            key,
-            value,
-            source,
-            registerOptions,
-          );
-        },
-      );
-    };
-
-    if (typeof batch === "function") {
-      batch(registerAll);
-    } else {
-      registerAll({ register });
-    }
-
-    return () => {
-      const registrationsToDispose = registrations.filter(
-        ({ lifecycle }) => !isPersistentLifecycle(lifecycle),
-      );
-      if (registrationsToDispose.length === 0) return;
-
-      registrationsToDispose.forEach(
-        ({ cleanupDelayMs, key, scope, source }) => {
-          const cleanupKey = createCleanupKey(key, source, instanceId, scope);
-          scheduleOrRunCleanup(
-            cleanupScope,
-            cleanupKey,
-            () =>
-              unregister(REGISTRY_TYPES.CONTROLS, key, {
-                source,
-                instanceId,
-                scope,
-              }),
-            cleanupDelayMs,
-          );
-        },
-      );
-    };
+    return applyRegistrationEntries(
+      REGISTRY_TYPES.CONTROLS,
+      registrations,
+      context,
+    );
   },
 };
-
-// ── Delayed cleanup lifecycle helpers ─────────────────────────────────────────
-
 function createScopedCleanupKey(source, instanceId = null, scope = null) {
   return JSON.stringify([scope, source, instanceId || null]);
 }
-
 function getCleanupScope(context) {
   return context?.cleanupScope || new Map();
 }
-
 function clearCleanupTimer(scope, cleanupKey) {
   const lifecycle = scope.get(cleanupKey);
   if (!lifecycle) return;
-
   lifecycle.cancelled = true;
   clearTimeout(lifecycle.timerId);
   scope.delete(cleanupKey);
 }
-
 function scheduleCleanup(scope, cleanupKey, callback, delayMs) {
   clearCleanupTimer(scope, cleanupKey);
-  const lifecycle = { cancelled: false, timerId: null };
+  const lifecycle = {
+    cancelled: false,
+    timerId: null,
+  };
   lifecycle.timerId = setTimeout(() => {
     if (lifecycle.cancelled || scope.get(cleanupKey) !== lifecycle) return;
     scope.delete(cleanupKey);
@@ -304,25 +279,20 @@ function scheduleCleanup(scope, cleanupKey, callback, delayMs) {
   }, delayMs);
   scope.set(cleanupKey, lifecycle);
 }
-
 function scheduleOrRunCleanup(scope, cleanupKey, callback, delayMs) {
   if (Number.isFinite(delayMs) && delayMs > 0) {
     scheduleCleanup(scope, cleanupKey, callback, delayMs);
     return;
   }
-
   callback();
 }
-
-// Loading, modal, and navigation handlers share the scoped cleanup lifecycle.
-const loadingPlugin = {
+const loadingHandler = {
   name: "loading",
   apply: (config, context) => {
     const { instanceId, register, unregister } = context;
     const cleanupScope = getCleanupScope(context);
     const loading = config?.loading;
     if (!loading) return;
-
     const {
       cleanupDelayMs,
       lifecycle,
@@ -332,12 +302,12 @@ const loadingPlugin = {
       registerOptions,
       scope,
       source,
-    } = splitRegistryConfig(loading, { type: REGISTRY_TYPES.LOADING });
+    } = splitRegistryConfig(loading, {
+      type: REGISTRY_TYPES.LOADING,
+    });
     if (metadataInvalid && metadataIsStrict) return;
-
     const cleanupKey = createScopedCleanupKey(source, instanceId, scope);
     clearCleanupTimer(cleanupScope, cleanupKey);
-
     register(
       REGISTRY_TYPES.LOADING,
       REGISTRY_KEYS.LOADING,
@@ -345,7 +315,6 @@ const loadingPlugin = {
       source,
       registerOptions,
     );
-
     return () => {
       if (isPersistentLifecycle(lifecycle)) return;
       scheduleCleanup(
@@ -363,19 +332,16 @@ const loadingPlugin = {
     };
   },
 };
-
-const modalPlugin = {
+const modalHandler = {
   name: "modals",
   apply: (config, context) => {
-    const { batch, instanceId, register, unregister } = context;
+    const { instanceId } = context;
     const cleanupScope = getCleanupScope(context);
     const modals = config?.modal || config?.modals;
     if (!modals) return;
-
     const modalConfig = Array.isArray(modals)
       ? Object.assign({}, ...modals)
       : modals;
-
     const {
       cleanupDelayMs,
       lifecycle,
@@ -385,42 +351,36 @@ const modalPlugin = {
       registerOptions,
       scope,
       source,
-    } = splitRegistryConfig(modalConfig, { type: REGISTRY_TYPES.MODAL });
+    } = splitRegistryConfig(modalConfig, {
+      type: REGISTRY_TYPES.MODAL,
+    });
     if (metadataInvalid && metadataIsStrict) return;
     const modalItems = Object.entries(
       payload && typeof payload === "object" && !Array.isArray(payload)
         ? payload
         : {},
     ).filter(([key]) => key !== "registry");
-
     if (modalItems.length === 0) return;
-
     const cleanupKey = createCleanupKey("modals", source, instanceId, scope);
     clearCleanupTimer(cleanupScope, cleanupKey);
-
-    if (typeof batch === "function") {
-      batch((queue) => {
-        modalItems.forEach(([key, component]) => {
-          queue.register(
-            REGISTRY_TYPES.MODAL,
-            key,
-            component,
-            source,
-            registerOptions,
-          );
-        });
-      });
-    } else {
+    runRegistrationBatch(context, (queue) => {
       modalItems.forEach(([key, component]) => {
-        register(REGISTRY_TYPES.MODAL, key, component, source, registerOptions);
+        queue.register(
+          REGISTRY_TYPES.MODAL,
+          key,
+          component,
+          source,
+          registerOptions,
+        );
       });
-    }
-
+    });
     return () => {
       if (isPersistentLifecycle(lifecycle)) return;
-      if (typeof batch === "function") {
-        const cleanup = () => {
-          batch((queue) => {
+      scheduleOrRunCleanup(
+        cleanupScope,
+        cleanupKey,
+        () =>
+          runRegistrationBatch(context, (queue) => {
             modalItems.forEach(([key]) => {
               queue.unregister(REGISTRY_TYPES.MODAL, key, {
                 source,
@@ -428,64 +388,36 @@ const modalPlugin = {
                 scope,
               });
             });
-          });
-        };
-        if (Number.isFinite(cleanupDelayMs) && cleanupDelayMs > 0) {
-          scheduleCleanup(cleanupScope, cleanupKey, cleanup, cleanupDelayMs);
-        } else {
-          cleanup();
-        }
-        return;
-      }
-
-      scheduleOrRunCleanup(
-        cleanupScope,
-        cleanupKey,
-        () => {
-          modalItems.forEach(([key]) => {
-            unregister(REGISTRY_TYPES.MODAL, key, {
-              source,
-              instanceId,
-              scope,
-            });
-          });
-        },
+          }),
         cleanupDelayMs,
       );
     };
   },
 };
-
 function createCleanupKey(path, source, instanceId = null, scope = null) {
   return JSON.stringify([path, scope, source, instanceId || null]);
 }
-
 function getLoadingFallback(config) {
   const loading = config?.loading;
   if (!loading || typeof loading !== "object" || Array.isArray(loading)) {
     return undefined;
   }
-
   const { payload } = splitRegistryConfig(loading);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return undefined;
   }
-
   if (!Object.prototype.hasOwnProperty.call(payload, "isLoading")) {
     return undefined;
   }
-
   return payload.isLoading;
 }
-
-const navPlugin = {
+const navHandler = {
   name: "nav",
   apply: (config, context) => {
     const { instanceId, register, unregister, pathname } = context;
     const cleanupScope = getCleanupScope(context);
     const nav = config?.nav;
     if (!nav) return;
-
     const {
       cleanupDelayMs,
       lifecycle,
@@ -495,14 +427,17 @@ const navPlugin = {
       registerOptions,
       scope,
       source,
-    } = splitRegistryConfig(nav, { type: REGISTRY_TYPES.NAV });
+    } = splitRegistryConfig(nav, {
+      type: REGISTRY_TYPES.NAV,
+    });
     if (metadataInvalid && metadataIsStrict) return;
     const navConfig =
       payload && typeof payload === "object" && !Array.isArray(payload)
         ? payload
         : {};
-
-    const normalizedNavConfig = { ...navConfig };
+    const normalizedNavConfig = {
+      ...navConfig,
+    };
     delete normalizedNavConfig.confirmation;
     const itemPath = normalizedNavConfig.path || pathname;
     const navItem = {
@@ -512,7 +447,6 @@ const navPlugin = {
       actions: normalizedNavConfig.actions,
       surface: normalizedNavConfig.surface,
     };
-
     const validation = validateNavConfig(navItem);
     if (!validation.valid) {
       recordRegistryDiagnostic({
@@ -524,20 +458,16 @@ const navPlugin = {
       console.warn("[Registry] Invalid NAV config:", validation.issues);
       return;
     }
-
     const resolvedIsLoading =
       normalizedNavConfig.isLoading !== undefined
         ? normalizedNavConfig.isLoading
         : getLoadingFallback(config);
-
     if (resolvedIsLoading !== undefined) {
       navItem.isLoading = resolvedIsLoading;
     }
-
     const filteredNavItem = Object.fromEntries(
       Object.entries(navItem).filter(([, val]) => val !== undefined),
     );
-
     if (itemPath) {
       const cleanupKey = createCleanupKey(itemPath, source, instanceId, scope);
       clearCleanupTimer(cleanupScope, cleanupKey);
@@ -549,7 +479,6 @@ const navPlugin = {
         registerOptions,
       );
     }
-
     return () => {
       if (isPersistentLifecycle(lifecycle)) return;
       if (itemPath) {
@@ -560,7 +489,6 @@ const navPlugin = {
             scope,
           });
         };
-
         if (cleanupDelayMs > 0) {
           const cleanupKey = createCleanupKey(
             itemPath,
@@ -571,25 +499,73 @@ const navPlugin = {
           scheduleCleanup(cleanupScope, cleanupKey, cleanup, cleanupDelayMs);
           return;
         }
-
         cleanup();
       }
     };
   },
 };
-
-const titlePlugin = {
+const navHudHandler = {
+  name: "navHud",
+  apply: (config, context) => {
+    const navHud = config?.navHud;
+    const hudConfigs = Array.isArray(navHud) ? navHud : navHud ? [navHud] : [];
+    if (hudConfigs.length === 0) return;
+    const registrations = hudConfigs.flatMap((hudConfig) => {
+      const {
+        cleanupDelayMs,
+        lifecycle,
+        metadataInvalid,
+        metadataIsStrict,
+        payload,
+        registerOptions,
+        scope,
+        source,
+      } = splitRegistryConfig(hudConfig, {
+        type: REGISTRY_TYPES.NAV_HUD,
+      });
+      if (metadataInvalid && metadataIsStrict) return [];
+      const validation = validateNavHudConfig(payload);
+      if (!validation.valid) {
+        recordRegistryDiagnostic({
+          action: "reject",
+          issues: validation.issues,
+          reason: "invalid-nav-hud-config",
+          type: REGISTRY_TYPES.NAV_HUD,
+        });
+        console.warn("[Registry] Invalid NAV_HUD config:", validation.issues);
+        return [];
+      }
+      return [
+        {
+          cleanupDelayMs,
+          key: payload.id,
+          lifecycle,
+          registerOptions,
+          scope,
+          source,
+          value: {
+            ...payload,
+            priority: payload.priority ?? registerOptions.priority ?? 0,
+          },
+        },
+      ];
+    });
+    return applyRegistrationEntries(
+      REGISTRY_TYPES.NAV_HUD,
+      registrations,
+      context,
+    );
+  },
+};
+const titleHandler = {
   name: "title",
   apply: (config) => {
     const title = config?.title;
     if (!title) return;
-
     const originalTitle = typeof document !== "undefined" ? document.title : "";
-
     if (typeof document !== "undefined") {
       document.title = title;
     }
-
     return () => {
       if (typeof document !== "undefined") {
         document.title = originalTitle;
@@ -597,22 +573,18 @@ const titlePlugin = {
     };
   },
 };
-
-// ── Plugin orchestration and cleanup isolation ─────────────────────────────────
-
 const REGISTRY_HANDLERS = [
-  titlePlugin,
-  contextMenuPlugin,
-  controlsPlugin,
-  navPlugin,
-  modalPlugin,
-  backgroundPlugin,
-  loadingPlugin,
+  titleHandler,
+  contextMenuHandler,
+  controlsHandler,
+  navHandler,
+  navHudHandler,
+  modalHandler,
+  backgroundHandler,
+  loadingHandler,
 ];
-
 export function applyRegistryConfig(config, context) {
   if (!config) return () => {};
-
   const cleanups = REGISTRY_HANDLERS.map((handler) => {
     try {
       return handler.apply(config, context);
@@ -627,11 +599,9 @@ export function applyRegistryConfig(config, context) {
       return null;
     }
   });
-
   return () => {
     cleanups.forEach((cleanup) => {
       if (typeof cleanup !== "function") return;
-
       try {
         cleanup();
       } catch (error) {

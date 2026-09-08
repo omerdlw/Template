@@ -13,16 +13,14 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
 import {
   NAV_BREADCRUMBS_TRANSITION,
   NAV_COMPOSITOR_STYLE,
   navBreadcrumbsVariants,
 } from "./motion";
-import { formatSlugTitle, normalizePath } from "./utils";
+import { formatSlugTitle, normalizePath } from "./routing";
 import { cn } from "@/shared/utils";
 import Iconify from "@/ui/primitives/icon";
-
 function useRequiredContext(context, hookName, providerName) {
   const value = useContext(context);
   if (value === null) {
@@ -30,9 +28,6 @@ function useRequiredContext(context, hookName, providerName) {
   }
   return value;
 }
-
-// ── Breadcrumbs ────────────────────────────────────────────────────────────────
-
 function createRootBreadcrumb(root, isCurrent) {
   return {
     id: root?.id || "home",
@@ -43,7 +38,6 @@ function createRootBreadcrumb(root, isCurrent) {
     level: 0,
   };
 }
-
 function createGenericBreadcrumbs(segments, overrides, resolveSegment) {
   let currentPath = "";
   return segments.map((segment, index) => {
@@ -71,14 +65,6 @@ function createGenericBreadcrumbs(segments, overrides, resolveSegment) {
     };
   });
 }
-
-/**
- * Builds breadcrumb entries for a pathname and optional route overrides.
- * @param {string} [pathname] - Route pathname
- * @param {object} [overrides] - Path-keyed title and icon overrides
- * @param {object} [config] - Root, path, and segment-resolution configuration
- * @returns {Array<object>} Ordered breadcrumb entries
- */
 export function resolveRouteBreadcrumbs(
   pathname = "",
   overrides = {},
@@ -89,14 +75,11 @@ export function resolveRouteBreadcrumbs(
     config.root,
     normalizedPath === "/",
   );
-
   if (normalizedPath === "/") {
     return [rootBreadcrumb];
   }
-
   const segments = normalizedPath.split("/").filter(Boolean);
   if (segments.length === 0) return [rootBreadcrumb];
-
   const resolvedPath = config.resolvePath?.({
     overrides,
     pathname: normalizedPath,
@@ -106,25 +89,16 @@ export function resolveRouteBreadcrumbs(
   if (Array.isArray(resolvedPath)) {
     return [rootBreadcrumb, ...resolvedPath];
   }
-
   return [
     rootBreadcrumb,
     ...createGenericBreadcrumbs(segments, overrides, config.resolveSegment),
   ];
 }
-
 const BreadcrumbStateContext = createContext(null);
 const BreadcrumbActionsContext = createContext(null);
 const BreadcrumbConfigContext = createContext({});
-
-/**
- * Provides breadcrumb override state and actions.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export function BreadcrumbProvider({ children, config = null }) {
   const [overrides, setOverrides] = useState({});
-
   const registerOverride = useCallback((path, config) => {
     if (!path || !config) return;
     const normalizedPath = String(path).trim().replace(/\/+$/, "") || "/";
@@ -142,18 +116,18 @@ export function BreadcrumbProvider({ children, config = null }) {
       };
     });
   }, []);
-
   const unregisterOverride = useCallback((path) => {
     if (!path) return;
     const normalizedPath = String(path).trim().replace(/\/+$/, "") || "/";
     setOverrides((currentOverrides) => {
       if (!currentOverrides[normalizedPath]) return currentOverrides;
-      const nextOverrides = { ...currentOverrides };
+      const nextOverrides = {
+        ...currentOverrides,
+      };
       delete nextOverrides[normalizedPath];
       return nextOverrides;
     });
   }, []);
-
   const actions = useMemo(
     () => ({
       registerOverride,
@@ -161,26 +135,26 @@ export function BreadcrumbProvider({ children, config = null }) {
     }),
     [registerOverride, unregisterOverride],
   );
-
   return createElement(
     BreadcrumbConfigContext.Provider,
-    { value: config || {} },
+    {
+      value: config || {},
+    },
     createElement(
       BreadcrumbActionsContext.Provider,
-      { value: actions },
+      {
+        value: actions,
+      },
       createElement(
         BreadcrumbStateContext.Provider,
-        { value: overrides },
+        {
+          value: overrides,
+        },
         children,
       ),
     ),
   );
 }
-
-/**
- * Returns the current breadcrumb override map.
- * @returns {object} Path-keyed breadcrumb overrides
- */
 export function useBreadcrumbOverrides() {
   return useRequiredContext(
     BreadcrumbStateContext,
@@ -188,11 +162,6 @@ export function useBreadcrumbOverrides() {
     "BreadcrumbProvider",
   );
 }
-
-/**
- * Returns breadcrumb override registration actions.
- * @returns {{registerOverride: Function, unregisterOverride: Function}} Breadcrumb actions
- */
 export function useBreadcrumbActions() {
   return useRequiredContext(
     BreadcrumbActionsContext,
@@ -200,27 +169,19 @@ export function useBreadcrumbActions() {
     "BreadcrumbProvider",
   );
 }
-
-/**
- * Resolves breadcrumbs and parent navigation for the current route.
- * @returns {object} Current breadcrumb state and navigation helpers
- */
 export function useNavBreadcrumbs() {
   const pathname = usePathname();
   const router = useRouter();
   const overrides = useBreadcrumbOverrides();
   const config = useContext(BreadcrumbConfigContext);
-
   const breadcrumbs = useMemo(
     () => resolveRouteBreadcrumbs(pathname, overrides, config || {}),
     [config, pathname, overrides],
   );
-
   const current = breadcrumbs[breadcrumbs.length - 1] || null;
   const parent =
     breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
   const canGoBack = breadcrumbs.length > 1;
-
   const goBack = useCallback(() => {
     if (parent?.path) {
       router.push(parent.path);
@@ -228,7 +189,6 @@ export function useNavBreadcrumbs() {
       router.back();
     }
   }, [parent, router]);
-
   return {
     breadcrumbs,
     canGoBack,
@@ -237,54 +197,43 @@ export function useNavBreadcrumbs() {
     parent,
   };
 }
-
-/**
- * Registers a breadcrumb override for a component lifetime.
- * @param {object} [options] - Path, title, and icon override
- * @returns {void}
- */
 export function useRegisterBreadcrumbOverride({
   icon = null,
   path,
   title = null,
 } = {}) {
   const { registerOverride, unregisterOverride } = useBreadcrumbActions();
-
   useEffect(() => {
     if (!path || (!title && !icon)) return undefined;
-
-    registerOverride(path, { title, icon });
-
+    registerOverride(path, {
+      title,
+      icon,
+    });
     return () => {
       unregisterOverride(path);
     };
   }, [icon, path, registerOverride, title, unregisterOverride]);
 }
-
-/**
- * Renders the expanded navigation breadcrumb card.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavBreadcrumbsCard = memo(function NavBreadcrumbsCard({
   className = "",
   maxItems = 4,
 }) {
   const { breadcrumbs } = useNavBreadcrumbs();
-
   if (!breadcrumbs || breadcrumbs.length <= 1) {
     return null;
   }
-
   const itemsToRender =
     breadcrumbs.length > maxItems
       ? [
           breadcrumbs[0],
-          { id: "ellipsis", title: "...", isEllipsis: true },
+          {
+            id: "ellipsis",
+            title: "...",
+            isEllipsis: true,
+          },
           ...breadcrumbs.slice(-2),
         ]
       : breadcrumbs;
-
   return (
     <motion.div
       variants={navBreadcrumbsVariants}
@@ -305,7 +254,6 @@ export const NavBreadcrumbsCard = memo(function NavBreadcrumbsCard({
       >
         {itemsToRender.map((crumb, index) => {
           const isLast = index === itemsToRender.length - 1;
-
           if (crumb.isEllipsis) {
             return (
               <span key="ellipsis" className="px-0.5 text-white/50 select-none">
@@ -313,7 +261,6 @@ export const NavBreadcrumbsCard = memo(function NavBreadcrumbsCard({
               </span>
             );
           }
-
           return (
             <motion.div
               layout="position"

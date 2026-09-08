@@ -173,27 +173,35 @@ export function VerificationSurface({ close, data = {} }) {
       lastSubmittedCode.current = normalizedCode;
       submitInFlight.current = true;
       setIsSubmitting(true);
+      let emailVerified = false;
       try {
-        await verifyEmailOtp(auth.client, { email, token: normalizedCode });
+        await verifyEmailOtp(auth.client, {
+          email,
+          token: normalizedCode,
+          type: mode === "sign-up" ? "signup" : "email",
+        });
+        emailVerified = true;
 
         if (mode === "sign-up") {
-          const result = await requestJson("/api/account/me", {
+          const result = await requestJson("/api/auth/sign-up/complete", {
             body: JSON.stringify({
-              bio: "",
               displayName: data.displayName,
-              isPrivate: false,
               username: data.username,
             }),
-            method: "PATCH",
+            method: "POST",
             notifyOnError: false,
             notifyOnUnauthorized: false,
           });
+          const username =
+            result.account?.username || result.profile?.username;
+          if (!username)
+            throw new Error("Account could not be completed");
 
           await auth.refresh();
           close?.({ success: true });
           window.location.replace(
             getAccountPath(
-              result?.profile?.username || data.username,
+              username || data.username,
               postAuthRedirect,
             ),
           );
@@ -212,6 +220,16 @@ export function VerificationSurface({ close, data = {} }) {
         close?.({ success: true });
         window.location.replace(destination);
       } catch (error) {
+        // The OTP may already be consumed even when account completion fails.
+        // Keep that failure distinct from an invalid code rather than prompting
+        // the user to submit the same code again.
+        if (emailVerified && mode === "sign-up") {
+          toast.error(
+            error.message ||
+              "Your email is verified, but the account details could not be saved",
+          );
+          return;
+        }
         lastSubmittedCode.current = "";
         setHasCodeError(true);
         toast.error(error.message || "Email verification failed");
@@ -263,9 +281,6 @@ export function VerificationSurface({ close, data = {} }) {
 
   useEffect(() => {
     setHeader?.({
-      description: email
-        ? `Enter the six-digit code sent to ${email}`
-        : "Enter the six-digit code sent to your email",
       headerAction: (
         <NavSurfaceHeaderButton
           disabled={isBusy || !canResend}
@@ -278,9 +293,6 @@ export function VerificationSurface({ close, data = {} }) {
               : `Resend in ${resendRemainingSeconds}s`}
         </NavSurfaceHeaderButton>
       ),
-      icon: "solar:shield-keyhole-bold",
-      title: mode === "sign-up" ? "Verify email" : "Sign in",
-      trailing: null,
     });
   }, [
     canResend,
@@ -304,8 +316,8 @@ export function VerificationSurface({ close, data = {} }) {
 
   if (!auth.isConfigured) {
     return (
-      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/65 ring-1 ring-inset ring-white/10">
-        Configure the Supabase variables in .env.local first.
+      <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-white/70 ring-1 ring-inset ring-white/10">
+        Configure the Supabase variables in .env.local first
       </p>
     );
   }
@@ -333,15 +345,12 @@ export function VerificationSurface({ close, data = {} }) {
         setIsFocused={setIsFocused}
       />
       <Button
-        className="h-11 w-full justify-center rounded-[20px] bg-white/70 px-4 text-xs font-bold text-black uppercase hover:bg-white disabled:opacity-50"
+        className="h-11 w-full justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
         disabled={isBusy || code.length !== OTP_LENGTH}
         type="submit"
       >
         {isSubmitting ? "Verifying" : "Verify code"}
       </Button>
-      <p className="text-center text-sm text-white/50">
-        Check your inbox for the six-digit verification code.
-      </p>
     </motion.form>
   );
 }

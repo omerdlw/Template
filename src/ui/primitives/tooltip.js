@@ -4,7 +4,7 @@ import { forwardRef } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { Z_INDEX } from "@/shared";
 import { cn } from "@/shared/utils";
-import { resolveSlotClasses } from "./primitive-support";
+import { resolveSlotClasses } from "./utils";
 
 const Tooltip = forwardRef(
   (

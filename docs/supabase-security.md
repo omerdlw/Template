@@ -2,12 +2,9 @@
 
 ## Core tables
 
-- `accounts`: private email and lifecycle status; owner-readable only.
-- `profiles`: public profile document with privacy-aware RLS.
-- `account_handle_reservations`: atomic ownership of usernames; no direct Data API grants.
-- `reserved_account_handles`: project route reservations; service-role managed.
+- `accounts`: unified account model holding identity, email, username, display name, avatar, bio, privacy flag, and lifecycle status; privacy-aware RLS.
+- `account_follows`: social relationship between accounts; privacy-aware RLS.
 - `auth_sessions`: device inventory and revocation state; owner-readable, RPC-written.
-- `auth_audit_events`: append-only security history; owner-readable, RPC-written.
 
 All exposed tables have RLS enabled. Privileged RPC functions revoke the default `PUBLIC` execute
 grant and grant only `authenticated` explicitly.

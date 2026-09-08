@@ -8,6 +8,7 @@ import {
   useAuth,
   verifyMfa,
 } from "@/modules/auth";
+import { Button, Input } from "@/ui/primitives";
 
 export function MfaChallenge() {
   const auth = useAuth();
@@ -49,10 +50,10 @@ export function MfaChallenge() {
   }
 
   return (
-    <form className="stack" onSubmit={submit}>
-      <label>
-        Six-digit code
-        <input
+    <form className="flex flex-col gap-4" onSubmit={submit}>
+      <label className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-white/50">Six-digit code</span>
+        <Input
           autoComplete="one-time-code"
           inputMode="numeric"
           maxLength={6}
@@ -61,14 +62,14 @@ export function MfaChallenge() {
           onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
         />
       </label>
-      <button
-        className="primary"
+      <Button
+        className="h-11 w-full justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
         disabled={pending || code.length !== 6}
         type="submit"
       >
         Verify
-      </button>
-      {error ? <p className="error">{error}</p> : null}
+      </Button>
+      {error ? <p className="text-xs text-error">{error}</p> : null}
     </form>
   );
 }

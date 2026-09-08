@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import {
   BEHAVIOR_CHECK_INTERVAL_MS,
   BEHAVIOR_FOCUS_IDLE_MS,
@@ -16,28 +15,51 @@ import {
   HORIZONTAL_GESTURE_DELTA_THRESHOLD,
   HORIZONTAL_GESTURE_DOMINANCE_RATIO,
   HORIZONTAL_GESTURE_SUPPRESSION_MS,
+  NAV_COLLAPSE_TO_COMPACT_DELAY_MS,
   NAV_COMPACT_BEHAVIOR,
-  NAVIGATION_FOCUS_RESTORE_BLOCKED_REASONS,
-  NAVIGATION_FOCUSABLE_SELECTOR,
   OVERSCROLL_THRESHOLD,
   SCROLL_DIRECTION_EPSILON,
 } from "./constants";
 import {
-  getCurrentTimestamp,
+  blurActiveElement,
+  focusNavigationElement,
   getDistanceToBottom,
+  getNavigationFocusableElements,
   getScrollableHeight,
   isEditableNavigationTarget,
   isInteractiveTarget,
+  shouldRestoreNavigationFocus,
 } from "./utils";
+export {
+  blurActiveElement,
+  focusNavigationElement,
+  getDistanceToBottom,
+  getNavigationFocusableElements,
+  getScrollableHeight,
+  isEditableNavigationTarget,
+  isInteractiveTarget,
+  shouldRestoreNavigationFocus,
+};
+export function canUseBottomLock(scrollableHeight, viewportHeight = null) {
+  const resolvedScrollableHeight =
+    scrollableHeight !== null && scrollableHeight !== undefined
+      ? Number(scrollableHeight) || 0
+      : getScrollableHeight();
 
-// ── Interaction state ────────────────────────────────────────────────────────
+  const resolvedViewportHeight =
+    viewportHeight !== null && viewportHeight !== undefined
+      ? Number(viewportHeight) || 0
+      : typeof window !== "undefined"
+        ? window.innerHeight || 0
+        : 0;
 
-/** Returns whether scrollable content is tall enough to support bottom locking. */
-export function canUseBottomLock(scrollableHeight) {
-  return scrollableHeight >= BOTTOM_LOCK_MIN_SCROLLABLE_HEIGHT;
+  const maxScrollableDistance =
+    resolvedViewportHeight > 0
+      ? Math.max(0, resolvedScrollableHeight - resolvedViewportHeight)
+      : resolvedScrollableHeight;
+
+  return maxScrollableDistance >= BOTTOM_LOCK_MIN_SCROLLABLE_HEIGHT;
 }
-
-/** Resolves whether navigation interaction should suppress compact behavior. */
 export function resolveCompactBehavior({
   isInputFocused,
   isPointerIdle,
@@ -47,16 +69,12 @@ export function resolveCompactBehavior({
     ? NAV_COMPACT_BEHAVIOR.FOCUSED
     : NAV_COMPACT_BEHAVIOR.BROWSING;
 }
-
-/** Tracks focus and idle interaction state for compact-navigation decisions. */
 export function useNavigationBehavior({ isVideoPlaying = false }) {
   const [behavior, setBehavior] = useState(NAV_COMPACT_BEHAVIOR.BROWSING);
   const lastInteractionRef = useRef(0);
-
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined")
       return undefined;
-
     lastInteractionRef.current = getCurrentTimestamp();
     let activityFrameId = null;
     const updateBehavior = () => {
@@ -90,7 +108,9 @@ export function useNavigationBehavior({ isVideoPlaying = false }) {
     window.addEventListener("pointerdown", recordBrowsingActivity, {
       passive: true,
     });
-    window.addEventListener("wheel", recordBrowsingActivity, { passive: true });
+    window.addEventListener("wheel", recordBrowsingActivity, {
+      passive: true,
+    });
     window.addEventListener("keydown", recordBrowsingActivity);
     document.addEventListener("focusin", updateBehavior);
     document.addEventListener("focusout", updateBehavior);
@@ -106,11 +126,8 @@ export function useNavigationBehavior({ isVideoPlaying = false }) {
       document.removeEventListener("focusout", updateBehavior);
     };
   }, [isVideoPlaying]);
-
   return behavior;
 }
-
-/** Determines whether compact mode can activate for the current navigation item. */
 export function canUseCompactNav({
   hasActiveItem,
   isActionEngaged,
@@ -135,8 +152,6 @@ export function canUseCompactNav({
     )
   );
 }
-
-/** Resolves the next compact value from scroll direction and accumulated travel. */
 export function resolveCompactState(
   scrollY,
   previousScrollY,
@@ -158,81 +173,22 @@ export function resolveCompactState(
     : currentValue;
 }
 
-// ── Focus management and keyboard interaction ───────────────────────────────
-
-/**
- * Returns the enabled focusable descendants of a navigation container.
- * @param {HTMLElement|null} container - Navigation container to inspect
- * @returns {HTMLElement[]} Ordered focusable elements
- */
-export function getNavigationFocusableElements(container) {
-  if (!container?.querySelectorAll) return [];
-
-  return [...container.querySelectorAll(NAVIGATION_FOCUSABLE_SELECTOR)].filter(
-    (element) => {
-      const isHTMLElement =
-        typeof HTMLElement === "undefined" || element instanceof HTMLElement;
-      return (
-        isHTMLElement &&
-        !element.hasAttribute("disabled") &&
-        element.getAttribute("aria-hidden") !== "true"
-      );
-    },
-  );
-}
-
-/**
- * Focuses one connected navigation element without moving the page.
- * @param {HTMLElement|null} element - Element to focus
- * @returns {boolean} Whether focus was attempted
- */
-export function focusNavigationElement(element) {
-  if (!element?.isConnected || typeof element.focus !== "function")
-    return false;
-
-  try {
-    element.focus({ preventScroll: true });
-  } catch {
-    element.focus();
-  }
-
-  return true;
-}
-
-/**
- * Determines whether a closing surface should return focus to its trigger.
- * @param {object|null} result - Surface close result
- * @returns {boolean} Whether focus restoration is appropriate
- */
-export function shouldRestoreNavigationFocus(result) {
-  return !NAVIGATION_FOCUS_RESTORE_BLOCKED_REASONS.includes(result?.reason);
-}
-
-/**
- * Keeps keyboard focus inside an active surface and gives Escape to the surface first.
- * @param {object} options - Surface container and dismissal callback
- * @returns {void}
- */
 export function useNavigationFocusTrap({
   containerRef,
   enabled = true,
   onDismiss = null,
 }) {
   const hasAutoFocusedRef = useRef(false);
-
   useEffect(() => {
     if (!enabled) {
       hasAutoFocusedRef.current = false;
       return undefined;
     }
-
     const container = containerRef?.current;
     if (!container) return undefined;
-
     const focusFrameId = window.requestAnimationFrame(() => {
       if (hasAutoFocusedRef.current) return;
       hasAutoFocusedRef.current = true;
-
       const preferredTarget = container.querySelector("[data-nav-autofocus]");
       const target =
         preferredTarget instanceof HTMLElement
@@ -240,7 +196,6 @@ export function useNavigationFocusTrap({
           : getNavigationFocusableElements(container)[0] || container;
       focusNavigationElement(target);
     });
-
     const handleKeyDown = (event) => {
       if (
         event.key === "Escape" &&
@@ -252,20 +207,16 @@ export function useNavigationFocusTrap({
         onDismiss();
         return;
       }
-
       if (event.key !== "Tab") return;
-
       const focusableElements = getNavigationFocusableElements(container);
       if (focusableElements.length === 0) {
         event.preventDefault();
         focusNavigationElement(container);
         return;
       }
-
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
       const activeElement = document.activeElement;
-
       if (event.shiftKey && activeElement === firstElement) {
         event.preventDefault();
         focusNavigationElement(lastElement);
@@ -274,17 +225,13 @@ export function useNavigationFocusTrap({
         focusNavigationElement(firstElement);
       }
     };
-
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       window.cancelAnimationFrame(focusFrameId);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [containerRef, enabled, onDismiss]);
 }
-
-/** Handles keyboard navigation for the expanded navigation card stack. */
 export function useNavKeyboard({
   expanded,
   focusedIndex,
@@ -302,26 +249,22 @@ export function useNavKeyboard({
       ) {
         return;
       }
-
       if (isOverlayActive || !expanded) return;
-
       const { key } = event;
-
       if (key === "Escape") {
         event.preventDefault();
         setExpanded(false);
         return;
       }
-
       if (key === "Enter" && focusedIndex !== -1) {
         event.preventDefault();
         const focusedItem = navigationItems[focusedIndex];
-        navigate(focusedItem?.path, { item: focusedItem });
+        navigate(focusedItem?.path, {
+          item: focusedItem,
+        });
         return;
       }
-
       if (navigationItems.length === 0) return;
-
       if (key === "ArrowDown") {
         event.preventDefault();
         setFocusedIndex((currentIndex) =>
@@ -329,7 +272,6 @@ export function useNavKeyboard({
         );
         return;
       }
-
       if (key === "ArrowUp") {
         event.preventDefault();
         setFocusedIndex((currentIndex) =>
@@ -347,14 +289,12 @@ export function useNavKeyboard({
       setFocusedIndex,
     ],
   );
-
   useEffect(() => {
     if (!expanded) return undefined;
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [expanded, handleKeyDown]);
 }
-
 export function useNavigationCompactController({
   activeItem,
   expanded,
@@ -381,14 +321,30 @@ export function useNavigationCompactController({
   const isLoading = Boolean(activeItem?.isLoading);
   const isStatus = Boolean(activeItem?.isStatus);
   const isActionEngaged = Boolean(searchQuery?.trim());
-  const behavior = useNavigationBehavior({ isVideoPlaying });
+  const behavior = useNavigationBehavior({
+    isVideoPlaying,
+  });
   const isBehaviorFocused = behavior === NAV_COMPACT_BEHAVIOR.FOCUSED;
+  const userExitedCompactRef = useRef(false);
+  const wasExpandedRef = useRef(false);
+  const collapseTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current !== null) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const exitCompact = useCallback(() => {
+    if (collapseTimerRef.current !== null) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
     if (!compactRef.current) return false;
-
-    // Compact is a scroll-only presentation. Once the user starts a Nav
-    // interaction, leave it behind instead of restoring it after that flow.
+    userExitedCompactRef.current = true;
     restoreCompactRef.current = false;
     compactRef.current = false;
     bottomLockRef.current = false;
@@ -397,10 +353,8 @@ export function useNavigationCompactController({
       typeof window === "undefined" ? 0 : window.scrollY || 0;
     lastToggleTimeRef.current = getCurrentTimestamp();
     setCompact(false);
-
     return true;
   }, []);
-
   useEffect(() => {
     const compactAllowed = canUseCompactNav({
       hasActiveItem,
@@ -415,7 +369,6 @@ export function useNavigationCompactController({
     });
     const canPreserveCompactRestore =
       typeof window !== "undefined" && isSurface && restoreCompactRef.current;
-
     if (!compactAllowed || compactLocked || typeof window === "undefined") {
       if (canPreserveCompactRestore) {
         compactRef.current = false;
@@ -424,7 +377,6 @@ export function useNavigationCompactController({
         setCompact(false);
         return undefined;
       }
-
       restoreCompactRef.current = false;
       compactRef.current = false;
       bottomLockRef.current = false;
@@ -433,15 +385,20 @@ export function useNavigationCompactController({
       setCompact(false);
       return undefined;
     }
-
     const currentScrollY = window.scrollY || 0;
     const initialDistanceToBottom = getDistanceToBottom(currentScrollY);
     const initialScrollableHeight = getScrollableHeight();
+    const canInitialBottomLock = canUseBottomLock(initialScrollableHeight);
     const shouldStartBottomLocked =
-      canUseBottomLock(initialScrollableHeight) &&
+      canInitialBottomLock &&
+      currentScrollY > COMPACT_RELEASE_THRESHOLD &&
       initialDistanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
-
     if (expanded) {
+      wasExpandedRef.current = true;
+      if (collapseTimerRef.current !== null) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
       restoreCompactRef.current = compactRef.current;
       compactRef.current = false;
       bottomLockRef.current = false;
@@ -452,148 +409,142 @@ export function useNavigationCompactController({
       return undefined;
     }
 
-    const shouldRestoreCompact =
-      restoreCompactRef.current && currentScrollY > COMPACT_RELEASE_THRESHOLD;
+    const isCollapsingFromExpanded = wasExpandedRef.current;
+    wasExpandedRef.current = false;
 
-    restoreCompactRef.current = false;
-    bottomLockRef.current = shouldStartBottomLocked;
-    compactRef.current = shouldStartBottomLocked ? true : shouldRestoreCompact;
-    lastScrollYRef.current = currentScrollY;
-    downwardTravelRef.current = 0;
-    setCompact(shouldStartBottomLocked ? true : shouldRestoreCompact);
+    if (isCollapsingFromExpanded) {
+      userExitedCompactRef.current = false;
+      restoreCompactRef.current = false;
+      compactRef.current = false;
+      bottomLockRef.current = false;
+      lastScrollYRef.current = currentScrollY;
+      downwardTravelRef.current = 0;
+      setCompact(false);
 
-    const updateCompactState = () => {
-      const scrollY = window.scrollY || 0;
-      const distanceToBottom = getDistanceToBottom(scrollY);
-      const scrollableHeight = getScrollableHeight();
-      const canBottomLock = canUseBottomLock(scrollableHeight);
-      const shouldActivateBottomLock =
-        canBottomLock && distanceToBottom <= BOTTOM_LOCK_ACTIVATION_DISTANCE;
-      const shouldKeepBottomLock =
-        canBottomLock && distanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
-
-      if (bottomLockRef.current && !canBottomLock) {
-        bottomLockRef.current = false;
-        downwardTravelRef.current = 0;
-
-        if (compactRef.current && scrollY < COMPACT_SCROLL_THRESHOLD) {
-          compactRef.current = false;
-          lastScrollYRef.current = scrollY;
-          setCompact(false);
-          return;
-        }
+      if (collapseTimerRef.current !== null) {
+        clearTimeout(collapseTimerRef.current);
       }
-
-      if (shouldActivateBottomLock) {
-        bottomLockRef.current = true;
-      }
-
-      if (bottomLockRef.current && shouldKeepBottomLock) {
-        lastScrollYRef.current = scrollY;
-        downwardTravelRef.current = 0;
-        suppressCompactUntilRef.current = 0;
-
-        if (!compactRef.current) {
+      collapseTimerRef.current = setTimeout(() => {
+        collapseTimerRef.current = null;
+        if (typeof window === "undefined") return;
+        const scrollY = window.scrollY || 0;
+        const distanceToBottom = getDistanceToBottom(scrollY);
+        const scrollableHeight = getScrollableHeight();
+        const canBottomLock = canUseBottomLock(scrollableHeight);
+        const shouldLock =
+          canBottomLock &&
+          scrollY > COMPACT_RELEASE_THRESHOLD &&
+          distanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
+        if (shouldLock) {
+          bottomLockRef.current = true;
           compactRef.current = true;
           lastToggleTimeRef.current = getCurrentTimestamp();
           setCompact(true);
         }
+      }, NAV_COLLAPSE_TO_COMPACT_DELAY_MS);
+    } else {
+      const shouldRestoreCompact =
+        restoreCompactRef.current &&
+        canInitialBottomLock &&
+        currentScrollY > COMPACT_RELEASE_THRESHOLD &&
+        initialDistanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
+      restoreCompactRef.current = false;
+      bottomLockRef.current = shouldStartBottomLocked;
+      compactRef.current = shouldStartBottomLocked
+        ? true
+        : shouldRestoreCompact;
+      lastScrollYRef.current = currentScrollY;
+      downwardTravelRef.current = 0;
+      setCompact(shouldStartBottomLocked ? true : shouldRestoreCompact);
+    }
 
+    const updateCompactState = () => {
+      if (collapseTimerRef.current !== null) {
         return;
       }
+      const scrollY = window.scrollY || 0;
+      const distanceToBottom = getDistanceToBottom(scrollY);
+      const scrollableHeight = getScrollableHeight();
+      const canBottomLock = canUseBottomLock(scrollableHeight);
 
-      if (bottomLockRef.current && !shouldKeepBottomLock) {
+      if (userExitedCompactRef.current) {
+        if (distanceToBottom > BOTTOM_LOCK_RELEASE_DISTANCE) {
+          userExitedCompactRef.current = false;
+        } else {
+          return;
+        }
+      }
+
+      const isAtBottom =
+        canBottomLock &&
+        scrollY > COMPACT_RELEASE_THRESHOLD &&
+        distanceToBottom <= BOTTOM_LOCK_ACTIVATION_DISTANCE;
+      const canKeepBottomLock =
+        canBottomLock &&
+        scrollY > COMPACT_RELEASE_THRESHOLD &&
+        distanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
+
+      if (isAtBottom) {
+        bottomLockRef.current = true;
+      } else if (!canKeepBottomLock) {
         bottomLockRef.current = false;
       }
 
-      if (scrollY < OVERSCROLL_THRESHOLD) {
-        lastScrollYRef.current = scrollY;
-        return;
-      }
-
-      const scrollDelta = scrollY - lastScrollYRef.current;
-      const compactActivationSuppressed =
-        !compactRef.current &&
-        getCurrentTimestamp() < suppressCompactUntilRef.current;
-
-      if (scrollDelta >= COMPACT_MIN_ACTIVATION_DELTA) {
-        downwardTravelRef.current += scrollDelta;
-      } else if (
-        scrollDelta < -SCROLL_DIRECTION_EPSILON ||
-        scrollY <= COMPACT_RELEASE_THRESHOLD
-      ) {
-        downwardTravelRef.current = 0;
-      }
-
-      const nextValue = resolveCompactState(
-        scrollY,
-        lastScrollYRef.current,
-        compactRef.current,
-        downwardTravelRef.current,
-        compactActivationSuppressed,
-      );
+      const nextValue = Boolean(bottomLockRef.current && canKeepBottomLock);
       lastScrollYRef.current = scrollY;
+      downwardTravelRef.current = 0;
 
       if (nextValue === compactRef.current) {
         return;
       }
-
       if (
         getCurrentTimestamp() - lastToggleTimeRef.current <
         COMPACT_TOGGLE_COOLDOWN_MS
       ) {
         return;
       }
-
       compactRef.current = nextValue;
       lastToggleTimeRef.current = getCurrentTimestamp();
-
-      if (nextValue) {
-        downwardTravelRef.current = 0;
-      }
-
       setCompact(nextValue);
     };
-
     const handleWheel = (event) => {
       const horizontalDelta = Math.abs(event.deltaX);
       const verticalDelta = Math.abs(event.deltaY);
-
       if (horizontalDelta < HORIZONTAL_GESTURE_DELTA_THRESHOLD) {
         return;
       }
-
       if (
         horizontalDelta <=
         verticalDelta * HORIZONTAL_GESTURE_DOMINANCE_RATIO
       ) {
         return;
       }
-
       suppressCompactUntilRef.current =
         getCurrentTimestamp() + HORIZONTAL_GESTURE_SUPPRESSION_MS;
       downwardTravelRef.current = 0;
     };
-
     let scrollFrameId = null;
     const scheduleCompactStateUpdate = () => {
       if (scrollFrameId !== null) return;
-
       scrollFrameId = window.requestAnimationFrame(() => {
         scrollFrameId = null;
         updateCompactState();
       });
     };
-
     updateCompactState();
     window.addEventListener("scroll", scheduleCompactStateUpdate, {
       passive: true,
     });
-    window.addEventListener("wheel", handleWheel, { passive: true });
-
+    window.addEventListener("wheel", handleWheel, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleCompactStateUpdate, {
+      passive: true,
+    });
     return () => {
       window.removeEventListener("scroll", scheduleCompactStateUpdate);
       window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("resize", scheduleCompactStateUpdate);
       if (scrollFrameId !== null) window.cancelAnimationFrame(scrollFrameId);
     };
   }, [
@@ -612,22 +563,28 @@ export function useNavigationCompactController({
     isStatus,
     isSurface,
   ]);
-
-  return { compact, exitCompact };
+  return {
+    compact,
+    exitCompact,
+  };
 }
-
-/** Returns the current scroll-driven compact presentation state. */
 export function useNavigationCompact(options) {
   return useNavigationCompactController(options).compact;
 }
-
 export function useNavigationRouteReset(pathname, onRouteChange) {
   const previousPathRef = useRef(pathname);
-
   useEffect(() => {
     if (previousPathRef.current === pathname) return;
-
     previousPathRef.current = pathname;
     onRouteChange?.(pathname);
   }, [onRouteChange, pathname]);
+}
+export function getCurrentTimestamp() {
+  if (
+    typeof performance !== "undefined" &&
+    typeof performance.now === "function"
+  ) {
+    return performance.now();
+  }
+  return Date.now();
 }

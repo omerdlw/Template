@@ -80,7 +80,7 @@ Context, tag veya extra context içine secret ve gereksiz kişisel veri koymayı
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/error-boundary/*.js modules/docs/error-boundary.md
-npx eslint modules/error-boundary/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/error-boundary
+npx prettier --check src/modules/error-boundary docs/modules/error-boundary.md
 ```

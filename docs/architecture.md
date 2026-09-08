@@ -24,14 +24,7 @@ to the Account shell.
 
 ## Module interfaces
 
-`src/modules/catalog.js` declares the supported import paths, runtime class, stability level,
-documentation and direct dependencies of every module. The root entrypoint is the stable client
-facade; `/contract` is runtime-neutral; `/server` is protected by `server-only`; and explicitly
-unstable APIs live under `/experimental`. Undeclared files are internal.
-
-`npm run modules:check` verifies this catalog against the actual import graph, rejects dependency
-cycles and cross-module deep imports, follows entrypoint imports to detect client/server leakage,
-and compares the public exports with `src/modules/public-exports.json`.
+Every module exposes one root client facade; Auth and Account also expose a `/server` interface protected by `server-only`. Other internal files remain private to their owning module.
 
 ## Ownership
 
@@ -44,8 +37,7 @@ and compares the public exports with `src/modules/public-exports.json`.
 | Product data, tabs and metrics                 | `domains/<project>`          | Product tables and product UI              |
 | Descriptor registration and conflict policy    | `modules/registry`           | Generic descriptor types and lifecycle     |
 | Global interactive surfaces                    | Platform UI modules          | Registry, shared tokens and UI primitives  |
-| Cross-module integration                       | `app/_composition`           | Public module interfaces only              |
-| Development runtime observability              | `modules/platform-inspector` | Public read-only platform snapshots        |
+| Cross-module integration                       | `app/providers.js`           | Public module interfaces only              |
 
 ## Platform runtime flow
 
@@ -58,9 +50,9 @@ Product feature
 ```
 
 `src/app/providers.js` is the only root composition point. It mounts each provider and global
-renderer once. Static route descriptors live in `src/app/_composition/platform-registry.js`.
-Product-specific commands, unread-count subscriptions and Auth actions attach there instead of
-being built into Nav.
+renderer once, seeds application-owned descriptors and attaches domain integrations. Commands,
+surface copy and icons live with the Auth, Account or product domain that owns their behavior;
+Nav remains unaware of those domains.
 
 In development, `PlatformInspector` is mounted at this composition root. It observes public module
 state, Registry diagnostics and the Nav scheduler without gaining mutation authority; production
@@ -99,9 +91,9 @@ Router routes. The sample wiring is:
 ```text
 domains/project/account-extension.js
   ↓ imported by
-app/(protected)/account/layout.js
-  ↓ passes props to
-modules/account/AccountShell
+app/account/(protected)/workspace/page.js and app/account/[username]/page.js
+  ↓ passes project UI to
+the Account-owned page composition
 ```
 
 For an e-commerce product, replace the sample tab with Orders and Invoices. For a social product,

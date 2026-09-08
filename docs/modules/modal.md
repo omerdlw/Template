@@ -6,12 +6,13 @@
 
 Modül stack sırasını, backdrop/Escape kapanışını, responsive position'ı, focus dönüşünü ve `openModal` Promise'ini yönetir. Domain state'i, API çağrısı, modal kaydı ve ürün metni yönetmez.
 
-| Dosya        | Sorumluluk                                             |
-| ------------ | ------------------------------------------------------ |
-| `index.js`   | Public facade, portal renderer, `Modal` ve `Container` |
-| `runtime.js` | Stack, Promise, close callback ve focus lifecycle'ı    |
-| `config.js`  | Position, chrome ve generic header sözleşmesi          |
-| `motion.js`  | Modal motion değerleri                                 |
+| Dosya          | Sorumluluk                                             |
+| -------------- | ------------------------------------------------------ |
+| `index.js`     | Public facade, portal renderer, `Modal` ve `Container` |
+| `provider.js`  | Stack, Promise, close callback ve focus lifecycle'ı    |
+| `constants.js` | Position, chrome ve breakpoint sabitleri               |
+| `utils.js`     | Header normalizasyon fonksiyonu                        |
+| `motion.js`    | Modal motion değerleri                                 |
 
 ## Kurulum
 
@@ -102,7 +103,7 @@ Payload'ı `data` altında tutun. Modalın kontrol alanlarını payload'a karı�
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/modal/*.js modules/docs/modal.md
-npx eslint modules/modal/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/modal
+npx prettier --check src/modules/modal docs/modules/modal.md
 ```

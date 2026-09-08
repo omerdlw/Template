@@ -6,7 +6,7 @@
 
 Modül `minDuration`, skeleton, overlay görünürlüğü ve timer cleanup'ını yönetir. Route segment `loading.js` dosyalarını, istekleri veya feature'a ait progress arayüzünü yönetmez.
 
-`runtime.js` state modeli, option normalizasyonu, context'ler ve timer lifecycle'ını; `index.js` public facade ile overlay'i içerir. Ayrı bir config veya motion dosyası yoktur.
+`provider.js` state modeli, option normalizasyonu, context'ler ve timer lifecycle'ını; `index.js` public facade ile overlay'i içerir. Ayrı bir config veya motion dosyası yoktur.
 
 ## Kurulum
 
@@ -80,7 +80,7 @@ Provider'ı ve overlay'i tekrar mount etmeyin. Aynı işi hem Registry hem manue
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/loading/*.js modules/docs/loading.md
-npx eslint modules/loading/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/loading
+npx prettier --check src/modules/loading docs/modules/loading.md
 ```

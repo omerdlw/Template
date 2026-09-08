@@ -1,3 +1,8 @@
 export default function Page() {
-  return <>Template</>;
+  return (
+    <>
+      <div className="h-screen">Template</div>
+      <div className="h-screen">Template</div>
+    </>
+  );
 }

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-
 import { Z_INDEX } from "@/shared";
 import { cn } from "@/shared/utils";
+import { FIT_TO_OBJECT_CLASS_MAP } from "./constants";
 import {
   BACKGROUND_ANIMATE_PRESENCE_MODE,
   BACKGROUND_EXIT_EASE,
@@ -14,24 +14,20 @@ import {
   toCssDelay,
   toCssDuration,
   toCssEasing,
-} from "./model";
+} from "./motion";
 import {
   extractWidthClasses,
-  FIT_TO_OBJECT_CLASS_MAP,
   getEdgeFadeMask,
   resolveGradientSettings,
   resolveVideoClasses,
-} from "./model";
+} from "./utils";
 import {
   applyVideoPlaybackState,
   BackgroundProvider,
   getVisualStyle,
   useBackgroundActions,
   useBackgroundState,
-} from "./runtime";
-
-// ── Public facade ──────────────────────────────────────────────────────────────
-
+} from "./provider";
 export {
   BACKGROUND_ANIMATE_PRESENCE_MODE,
   BACKGROUND_EXIT_EASE,
@@ -41,22 +37,16 @@ export {
   toCssDelay,
   toCssDuration,
   toCssEasing,
-} from "./model";
-
+} from "./motion";
 export {
   BackgroundProvider,
   useBackgroundActions,
   useBackgroundState,
-} from "./runtime";
-export { useOptionalBackgroundActions } from "./runtime";
-
-// ── Decorative gradient layer ──────────────────────────────────────────────────
-
+} from "./provider";
+export { useOptionalBackgroundActions } from "./provider";
 function BackgroundGradients({ count, direction }) {
   if (!count || count <= 0) return null;
-
   const opacity = Math.min(1, Math.max(0.2, count * 0.25));
-
   return (
     <div
       className={cn(
@@ -74,9 +64,6 @@ function BackgroundGradients({ count, direction }) {
     />
   );
 }
-
-// ── Background overlay surface ─────────────────────────────────────────────────
-
 export function BackgroundOverlay() {
   const {
     hasBackground,
@@ -103,7 +90,6 @@ export function BackgroundOverlay() {
   } = useBackgroundState();
   const { setVideoPlaying, setVideoElement } = useBackgroundActions();
   const videoRef = useRef(null);
-
   const isMuted = videoOptions?.muted ?? true;
   const shouldAutoPlay = videoOptions?.autoplay ?? true;
   const isLoop = videoOptions?.loop ?? false;
@@ -208,13 +194,11 @@ export function BackgroundOverlay() {
   const resolvedObjectPosition =
     baseStyle?.objectPosition ||
     (typeof position === "string" && position ? position : undefined);
-
   useEffect(() => {
     if (!isVideo || !videoRef.current) {
       setVideoElement(null);
       return undefined;
     }
-
     const videoElement = videoRef.current;
     setVideoElement(videoElement);
     applyVideoPlaybackState({
@@ -224,13 +208,10 @@ export function BackgroundOverlay() {
       playbackRate,
       setVideoPlaying,
     });
-
     return () => {
       try {
         videoElement.pause();
-      } catch {
-        // no-op
-      }
+      } catch {}
     };
   }, [
     isVideo,
@@ -241,13 +222,10 @@ export function BackgroundOverlay() {
     setVideoElement,
     setVideoPlaying,
   ]);
-
   useEffect(() => () => setVideoElement(null), [setVideoElement]);
-
   function handleEnded() {
     const videoElement = videoRef.current;
     if (!videoElement) return;
-
     if (Boolean(videoElement.loop)) {
       videoElement.currentTime = 0;
       videoElement
@@ -255,11 +233,9 @@ export function BackgroundOverlay() {
         .catch((error) => console.warn("Loop play failed", error));
       return;
     }
-
     videoElement.pause();
     setVideoPlaying(false);
   }
-
   function handleTimeUpdate() {
     const videoElement = videoRef.current;
     if (
@@ -271,7 +247,6 @@ export function BackgroundOverlay() {
       handleEnded();
     }
   }
-
   return (
     <AnimatePresence mode={BACKGROUND_ANIMATE_PRESENCE_MODE}>
       {hasBackground && (
@@ -303,7 +278,11 @@ export function BackgroundOverlay() {
                 widthClasses || (resolvedWidth ? "" : "w-full"),
               )}
               style={{
-                ...(resolvedWidth ? { width: resolvedWidth } : {}),
+                ...(resolvedWidth
+                  ? {
+                      width: resolvedWidth,
+                    }
+                  : {}),
                 maxWidth: "100%",
               }}
             >
@@ -317,7 +296,9 @@ export function BackgroundOverlay() {
                 playsInline
                 style={{
                   ...(resolvedObjectPosition
-                    ? { objectPosition: resolvedObjectPosition }
+                    ? {
+                        objectPosition: resolvedObjectPosition,
+                      }
                     : {}),
                   ...(resolvedMaskImage
                     ? {
@@ -333,7 +314,6 @@ export function BackgroundOverlay() {
                 onLoadedData={() => {
                   const videoElement = videoRef.current;
                   if (!videoElement) return;
-
                   videoElement.playbackRate = playbackRate;
                   if (isMuted && shouldAutoPlay) {
                     videoElement.muted = true;

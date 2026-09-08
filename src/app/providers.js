@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { requestJson } from "@/infrastructure/http/client";
 import { AccountProvider } from "@/modules/account";
 import { AuthProvider, useAuth } from "@/modules/auth";
 import { BackgroundOverlay, BackgroundProvider } from "@/modules/background";
@@ -10,18 +11,62 @@ import { GlobalError, GlobalErrorListener } from "@/modules/error-boundary";
 import { LoadingOverlay, LoadingProvider } from "@/modules/loading";
 import { ModalProvider } from "@/modules/modal";
 import Nav, { NavigationProvider, useNavigation } from "@/modules/nav";
-import { PlatformInspector } from "@/modules/platform-inspector";
 import {
   NotificationContainer,
   NotificationListener,
   NotificationProvider,
 } from "@/modules/notification";
-import { RegistryProvider } from "@/modules/registry";
+import {
+  REGISTRY_SOURCES,
+  REGISTRY_TYPES,
+  RegistryProvider,
+} from "@/modules/registry";
 import { EVENT_TYPES, globalEvents } from "@/shared";
-import { accountClient } from "./_composition/account-client";
-import { PLATFORM_REGISTRY_ENTRIES } from "./_composition/platform-registry";
-import { NavDefaultCommandsSync } from "./_composition/nav-default-commands";
-import { AccountNavSync } from "@/domains/account/account-nav-sync";
+import { AccountNavSync } from "@/domains/account";
+import { AuthNavSync } from "@/domains/auth/auth-nav-sync";
+import {
+  NotificationsModal,
+  NotificationsNavSync,
+  SocialRealtimeSync,
+} from "@/domains/social";
+
+const accountClient = Object.freeze({
+  getCurrentAccount: () =>
+    requestJson("/api/account/me", { notifyOnUnauthorized: false }),
+  updateCurrentAccount: (patch) =>
+    requestJson("/api/account/me", {
+      body: JSON.stringify(patch),
+      method: "PATCH",
+    }),
+});
+
+const INITIAL_REGISTRY_ENTRIES = Object.freeze([
+  {
+    source: REGISTRY_SOURCES.STATIC,
+    type: REGISTRY_TYPES.NAV,
+    items: {
+      "/": {
+        description: "Template overview",
+        icon: "solar:home-2-bold",
+        path: "/",
+        title: "Home",
+      },
+      "/modules": {
+        description: "Template module workspace",
+        icon: "solar:widget-6-bold",
+        path: "/modules",
+        title: "Modules",
+      },
+    },
+  },
+  {
+    source: REGISTRY_SOURCES.STATIC,
+    type: REGISTRY_TYPES.MODAL,
+    items: {
+      NOTIFICATIONS_MODAL: NotificationsModal,
+    },
+  },
+]);
 
 function AccountIdentityBridge({ children }) {
   const auth = useAuth();
@@ -41,6 +86,7 @@ function AccountIdentityBridge({ children }) {
 
 function AuthEventBridge() {
   const auth = useAuth();
+  const hasResolvedInitialState = useRef(false);
   const previousUserId = useRef(null);
   const previousSession = useRef(null);
 
@@ -48,18 +94,20 @@ function AuthEventBridge() {
     if (!auth.isReady) return;
 
     const userId = auth.user?.id || null;
-    if (userId && previousUserId.current !== userId) {
+    const isInitialState = !hasResolvedInitialState.current;
+    if (!isInitialState && userId && previousUserId.current !== userId) {
       globalEvents.emit(EVENT_TYPES.AUTH_SIGN_IN, {
         session: auth.session,
         userId,
       });
-    } else if (!userId && previousUserId.current) {
+    } else if (!isInitialState && !userId && previousUserId.current) {
       globalEvents.emit(EVENT_TYPES.AUTH_SIGN_OUT, {
         previousSession: previousSession.current,
         userId: previousUserId.current,
       });
     }
 
+    hasResolvedInitialState.current = true;
     previousUserId.current = userId;
     previousSession.current = auth.session;
     globalEvents.emit(EVENT_TYPES.AUTH_READY, {
@@ -86,7 +134,7 @@ function RegisteredNavigation() {
 export function Providers({ children }) {
   return (
     <GlobalError>
-      <RegistryProvider initialEntries={PLATFORM_REGISTRY_ENTRIES}>
+      <RegistryProvider initialEntries={INITIAL_REGISTRY_ENTRIES}>
         <AuthProvider>
           <AccountIdentityBridge>
             <NotificationProvider>
@@ -95,8 +143,10 @@ export function Providers({ children }) {
                   <ModalProvider>
                     <ContextMenuProvider>
                       <NavigationProvider>
+                        <AuthNavSync />
                         <AccountNavSync />
-                        <NavDefaultCommandsSync />
+                        <NotificationsNavSync />
+                        <SocialRealtimeSync />
                         <AuthEventBridge />
                         <BackgroundOverlay />
                         {children}
@@ -106,7 +156,6 @@ export function Providers({ children }) {
                         <NotificationListener />
                         <NotificationContainer />
                         <GlobalErrorListener />
-                        <PlatformInspector />
                       </NavigationProvider>
                     </ContextMenuProvider>
                   </ModalProvider>

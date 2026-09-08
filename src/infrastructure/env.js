@@ -21,7 +21,7 @@ export function requireSupabasePublicConfig() {
   const config = getSupabasePublicConfig();
   if (!config) {
     throw new Error(
-      "Supabase is not configured. Copy .env.example to .env.local and set the public URL and publishable key.",
+      "Supabase is not configured. Copy .env.example to .env.local and set the public URL and publishable key",
     );
   }
   return config;

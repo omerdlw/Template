@@ -22,13 +22,13 @@ const eslintConfig = defineConfig([
   },
   {
     files: [
-      "src/modules/background/runtime.js",
+      "src/modules/background/provider.js",
       "src/modules/context-menu/index.js",
       "src/modules/controls/index.js",
-      "src/modules/loading/runtime.js",
+      "src/modules/loading/provider.js",
       "src/modules/modal/index.js",
-      "src/modules/nav/{behavior,index,layout,runtime,surface}.js",
-      "src/modules/notification/{index,store}.js",
+      "src/modules/nav/{behavior,index,layout,provider,surface}.js",
+      "src/modules/notification/{index,provider}.js",
       "src/ui/feedback/fullscreen-state.js",
     ],
     rules: {
@@ -40,7 +40,7 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/modules/nav/layout.js",
-      "src/modules/nav/runtime.js",
+      "src/modules/nav/provider.js",
       "src/modules/nav/surface.js",
       "src/modules/registry/{hooks,provider}.js",
     ],

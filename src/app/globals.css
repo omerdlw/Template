@@ -16,23 +16,14 @@
 @layer base {
   :root {
     --white: #fcfcfb;
-    --black: #000;
     --primary: #fff;
+    --black: #000;
   }
 
   html,
   body {
     overscroll-behavior: none;
     color-scheme: dark;
-  }
-
-  html.lenis,
-  html.lenis body {
-    height: auto;
-  }
-
-  html.lenis.lenis-smooth {
-    scroll-behavior: auto !important;
   }
 }
 

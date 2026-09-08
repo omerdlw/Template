@@ -10,7 +10,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-
 import { Z_INDEX } from "@/shared";
 import Icon from "@/ui/primitives/icon";
 import {
@@ -21,11 +20,13 @@ import {
   menuPopVariants,
 } from "./motion";
 import {
-  getContextMenuMetrics,
   isImageIconSource,
   isObject,
   isScrollLockKey,
   joinClassNames,
+} from "./utils";
+import {
+  getContextMenuMetrics,
   positionMenu,
   resolveMenuHeader,
   resolveMenuItems,
@@ -34,10 +35,7 @@ import {
   ContextMenuProvider,
   useContextMenu,
   useContextMenuListener,
-} from "./runtime";
-
-// ── Public facade ──────────────────────────────────────────────────────────────
-
+} from "./provider";
 export {
   CONTEXT_MENU_CONTENT_VARIANTS,
   CONTEXT_MENU_ITEM_TAP,
@@ -48,48 +46,37 @@ export {
   menuItemVariants,
   menuPopVariants,
 } from "./motion";
-
-export {
-  CONTEXT_MENU_LAYOUT,
-  extractNodeText,
-  isObject,
-  resolveContextMenu,
-  resolveMenuItems,
-} from "./resolver";
-
+export { CONTEXT_MENU_LAYOUT } from "./constants";
+export { extractNodeText, isObject } from "./utils";
+export { resolveContextMenu, resolveMenuItems } from "./resolver";
 export {
   ContextMenuProvider,
   useContextMenu,
   useContextMenuListener,
-} from "./runtime";
-
-// ── Menu presentation ──────────────────────────────────────────────────────────
-
+} from "./provider";
 function ContextMenuHeaderIcon({ classNames, icon }) {
   const iconClassName = joinClassNames(
     "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] ring-1 ring-inset ring-white/10 bg-white/5 bg-cover bg-center bg-no-repeat text-white/70",
     classNames.headerIcon,
   );
-
   if (isImageIconSource(icon)) {
     return (
       <div
         className={iconClassName}
-        style={{ backgroundImage: `url(${icon})` }}
+        style={{
+          backgroundImage: `url(${icon})`,
+        }}
       />
     );
   }
-
   return (
     <div className={iconClassName}>
       {typeof icon === "string" ? <Icon icon={icon} size={20} /> : icon}
     </div>
   );
 }
-
 function ContextMenuHeader({ classNames, header }) {
   if (!header) return null;
-
   const containerClassName = joinClassNames(
     "mb-2 flex items-center gap-2.5 border-b border-white/10 px-1 pb-2.5",
     classNames.header,
@@ -106,7 +93,6 @@ function ContextMenuHeader({ classNames, header }) {
     "text-xs leading-snug text-white/70",
     classNames.headerDescription,
   );
-
   return (
     <div className={containerClassName}>
       {header.icon ? (
@@ -126,15 +112,12 @@ function ContextMenuHeader({ classNames, header }) {
     </div>
   );
 }
-
 function reportAsyncHandlerFailure(result) {
   if (!result || typeof result.then !== "function") return;
-
   result.catch((error) => {
     console.error("[ContextMenu] Error executing menu item handler:", error);
   });
 }
-
 function ContextMenuItem({
   classNames,
   isActive,
@@ -154,7 +137,6 @@ function ContextMenuItem({
       />
     );
   }
-
   const itemClassName = joinClassNames(
     "group flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-white/70 transition-all duration-200 ease-in-out hover:bg-white/10 hover:text-white focus-visible:outline-none data-[active=true]:bg-white/10 data-[active=true]:text-white disabled:pointer-events-none disabled:opacity-50",
     classNames.item,
@@ -169,7 +151,6 @@ function ContextMenuItem({
     classNames.itemIcon,
     item.itemIconClassName,
   );
-
   return (
     <motion.button
       ref={setButtonRef}
@@ -203,7 +184,6 @@ function ContextMenuItem({
     </motion.button>
   );
 }
-
 function ContextMenuContent({ config, items, menuContext, position, onClose }) {
   const menuRef = useRef(null);
   const itemRefs = useRef([]);
@@ -214,25 +194,24 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
     [config, menuContext],
   );
   const [activeIndex, setActiveIndex] = useState(-1);
-
   useEffect(() => {
     setActiveIndex(-1);
     itemRefs.current = [];
   }, [items]);
-
   useLayoutEffect(() => {
     if (menuRef.current) positionMenu(menuRef.current, position);
   }, [header, items, position]);
-
   useEffect(() => {
     if (activeIndex < 0) {
-      menuRef.current?.focus({ preventScroll: true });
+      menuRef.current?.focus({
+        preventScroll: true,
+      });
       return;
     }
-
-    itemRefs.current[activeIndex]?.focus({ preventScroll: true });
+    itemRefs.current[activeIndex]?.focus({
+      preventScroll: true,
+    });
   }, [activeIndex]);
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) onClose();
@@ -240,7 +219,6 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
     const handleEscape = (event) => {
       if (event.key === "Escape") onClose();
     };
-
     document.addEventListener("mousedown", handleClickOutside, true);
     document.addEventListener("keydown", handleEscape, true);
     return () => {
@@ -248,7 +226,6 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
       document.removeEventListener("keydown", handleEscape, true);
     };
   }, [onClose]);
-
   useEffect(() => {
     const preventScroll = (event) => event.preventDefault();
     const preventScrollKeys = (event) => {
@@ -256,8 +233,10 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
         event.preventDefault();
       }
     };
-    const listenerOptions = { capture: true, passive: false };
-
+    const listenerOptions = {
+      capture: true,
+      passive: false,
+    };
     window.addEventListener("wheel", preventScroll, listenerOptions);
     window.addEventListener("touchmove", preventScroll, listenerOptions);
     document.addEventListener("keydown", preventScrollKeys, true);
@@ -267,13 +246,11 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
       document.removeEventListener("keydown", preventScrollKeys, true);
     };
   }, []);
-
   const handleItemSelect = useCallback(
     (item, event) => {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       if (item?.disabled) return;
-
       const handler = item?.onSelect || item?.onClick;
       if (typeof handler === "function") {
         try {
@@ -285,12 +262,10 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
           );
         }
       }
-
       if (item?.closeOnSelect !== false) onClose?.();
     },
     [menuContext, onClose],
   );
-
   const handleMenuKeyDown = useCallback(
     (event) => {
       if (event.key === "Escape") {
@@ -298,7 +273,6 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
         onClose?.();
         return;
       }
-
       if (event.key === "ArrowDown") {
         event.preventDefault();
         setActiveIndex((prev) => {
@@ -314,7 +288,6 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
         });
         return;
       }
-
       if (event.key === "ArrowUp") {
         event.preventDefault();
         setActiveIndex((prev) => {
@@ -330,7 +303,6 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
         });
         return;
       }
-
       if (event.key === "Enter" || event.key === " ") {
         if (activeIndex >= 0 && items[activeIndex]) {
           event.preventDefault();
@@ -340,14 +312,15 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
     },
     [activeIndex, items, handleItemSelect, onClose],
   );
-
   return (
     <div>
       <div
         data-context-menu-overlay
         className={joinClassNames("fixed inset-0", classNames.overlay)}
         onMouseDown={onClose}
-        style={{ zIndex: Z_INDEX.DEBUG_OVERLAY - 1 }}
+        style={{
+          zIndex: Z_INDEX.DEBUG_OVERLAY - 1,
+        }}
       />
       <motion.div
         ref={menuRef}
@@ -406,20 +379,14 @@ function ContextMenuContent({ config, items, menuContext, position, onClose }) {
     </div>
   );
 }
-
-// ── Portal and global integration ──────────────────────────────────────────────
-
 export function ContextMenuRenderer() {
   const { menuConfig, menuContext, menuItems, position, isOpen, closeMenu } =
     useContextMenu();
-
   if (typeof document === "undefined") return null;
-
   const resolvedItems =
     Array.isArray(menuItems) && menuItems.length > 0
       ? menuItems
       : resolveMenuItems(menuConfig, menuContext);
-
   return createPortal(
     <AnimatePresence>
       {isOpen && menuConfig && resolvedItems.length > 0 ? (
@@ -436,7 +403,6 @@ export function ContextMenuRenderer() {
     document.body,
   );
 }
-
 export function ContextMenuGlobal() {
   useContextMenuListener();
   return <ContextMenuRenderer />;

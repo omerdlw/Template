@@ -12,7 +12,6 @@ import React, {
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
-
 import { globalEvents } from "@/shared";
 import { NAV_EVENTS, NAV_SURFACE_PHASE } from "./constants";
 import {
@@ -20,27 +19,37 @@ import {
   getItemMeasurementKey,
   getLineClampStyle,
   getRouteMeasurementKey,
-  isImageIconSource,
-  isValidComponentType,
   resolveNavVisualStyle,
   shouldRenderInlineAction,
   splitStyle,
+  getNavItemCardProps,
+  useElementHeight,
+} from "./layout";
+import {
+  isImageIconSource,
+  isValidComponentType,
+  resolveNavHeaderKey,
 } from "./utils";
+export { resolveNavHeaderKey };
 import {
   NAV_ACTION_DISMISS_TRANSITION,
   NAV_BADGE_TRANSITION,
   NAV_COMPOSITOR_STYLE,
   NAV_FADE_TRANSITION,
   NAV_HEADER_SWAP_TRANSITION,
+  NAV_HUD_TRANSITION,
   NAV_ICON_TRANSITION,
   NAV_SURFACE_BODY_ENTER_TRANSITION,
   NAV_SURFACE_BODY_EXIT_TRANSITION,
   NAV_SKELETON_PULSE_CLASS,
   NAV_TEXT_ENTER_TRANSITION,
   getNavCardContentAnimateProps,
+  getNavCardContentTransition,
   getNavCardDelay,
   getNavDescriptionVariants,
   getNavItemAnimateValues,
+  getNavItemCompactExitValues,
+  getNavItemCompactRestoreValues,
   getNavItemTransition,
   navActionDismissVariants,
   navBadgeVariants,
@@ -49,9 +58,10 @@ import {
   navHeaderSwapVariants,
   navHeaderRestoreVariants,
   navSurfaceBodyVariants,
+  navCompactTitleVariants,
+  navHudVariants,
   textCrossfadeVariants,
 } from "./motion";
-import { getNavItemCardProps, useElementHeight } from "./layout";
 import { resolveNavigationRoutePolicy, useRoutePrefetch } from "./routing";
 import { NavHudView } from "./hud";
 import { NavCommandBar } from "./commands";
@@ -61,22 +71,12 @@ import { useBackgroundActions, useBackgroundState } from "@/modules/background";
 import { cn } from "@/shared/utils";
 import { Button } from "@/ui/primitives";
 import Iconify from "@/ui/primitives/icon";
-
-// ── Card presentation primitives ─────────────────────────────────────────────
-
 function shouldShowVideoIcon({ isActive, isVideo, isStatus = false }) {
   return Boolean(isActive && isVideo && !isStatus);
 }
-
 function renderIconNode(icon, size) {
   return typeof icon === "string" ? <Iconify icon={icon} size={size} /> : icon;
 }
-
-/**
- * Renders animated navigation description text.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavDescription = memo(function NavDescription({
   text,
   style,
@@ -87,7 +87,6 @@ export const NavDescription = memo(function NavDescription({
   const { opacity = 0.7, ...restStyle } = inlineStyle;
   const isMultiline = Number(maxLines) > 1;
   const targetOpacity = typeof opacity === "number" ? opacity : 0.7;
-
   if (!animated) {
     return (
       <div className="relative min-h-[1.25rem] w-full overflow-hidden text-sm">
@@ -107,7 +106,6 @@ export const NavDescription = memo(function NavDescription({
       </div>
     );
   }
-
   return (
     <div className="relative min-h-[1.25rem] w-full overflow-hidden text-sm">
       <AnimatePresence mode="popLayout" initial={false}>
@@ -136,28 +134,25 @@ export const NavDescription = memo(function NavDescription({
     </div>
   );
 });
-
 const NavIconOverlay = memo(function NavIconOverlay({ overlay }) {
   if (!overlay?.icon) return null;
-
   const { icon, onClick, title = "" } = overlay;
   const isImageSource = isImageIconSource(icon);
   const isInteractive = typeof onClick === "function";
-
   const content = isImageSource ? (
     <span
       className="size-full rounded-full bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: `url(${icon})` }}
+      style={{
+        backgroundImage: `url(${icon})`,
+      }}
     />
   ) : (
     <span className="text-white">{renderIconNode(icon, 12)}</span>
   );
-
   const sharedClassName = cn(
     "absolute -right-1 -bottom-1 z-20 flex size-6 items-center justify-center overflow-hidden rounded-full bg-black ring ring-black",
     isInteractive ? "cursor-pointer" : "cursor-default",
   );
-
   return (
     <AnimatePresence mode="popLayout">
       {isInteractive ? (
@@ -198,12 +193,6 @@ const NavIconOverlay = memo(function NavIconOverlay({ overlay }) {
     </AnimatePresence>
   );
 });
-
-/**
- * Renders an animated navigation icon with an optional overlay action.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavIcon = memo(function NavIcon({
   icon,
   iconOverlay = null,
@@ -216,7 +205,6 @@ export const NavIcon = memo(function NavIcon({
   const { size = 24, ...iconStyle } = inlineStyle;
   const isImageSource = isImageIconSource(icon);
   const iconKey = typeof icon === "string" ? icon : "icon-node";
-
   const iconContent = isImageSource ? (
     <div
       className={cn(
@@ -238,7 +226,6 @@ export const NavIcon = memo(function NavIcon({
       <span>{renderIconNode(icon, size)}</span>
     </div>
   );
-
   const iconElement = animated ? (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
@@ -256,7 +243,6 @@ export const NavIcon = memo(function NavIcon({
   ) : (
     <div className="size-full">{iconContent}</div>
   );
-
   return (
     <div className="relative size-12 shrink-0">
       {typeof onClick === "function" ? (
@@ -275,19 +261,12 @@ export const NavIcon = memo(function NavIcon({
     </div>
   );
 });
-
-/**
- * Renders animated navigation title text.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
 export const NavTitle = memo(function NavTitle({
   text,
   style,
   animated = true,
 }) {
   const { className, inlineStyle } = splitStyle(style);
-
   if (!animated) {
     return (
       <div className="relative overflow-hidden">
@@ -297,7 +276,6 @@ export const NavTitle = memo(function NavTitle({
       </div>
     );
   }
-
   return (
     <div className="relative overflow-hidden">
       <AnimatePresence mode="popLayout" initial={false}>
@@ -321,21 +299,12 @@ export const NavTitle = memo(function NavTitle({
     </div>
   );
 });
-
-/**
- * Renders page scroll progress on the active navigation card.
- * @param {object} props - Component properties
- * @returns {React.ReactElement|null} Rendered navigation UI
- */
-// ── Card item state and action resolution ────────────────────────────────────
-
 function useNavBadge(navKey, initialBadge) {
   const [badge, setBadge] = useState({
     visible: Boolean(initialBadge),
     value: initialBadge,
     color: "bg-white/5",
   });
-
   useEffect(() => {
     const unsubscribe = globalEvents.subscribe(
       NAV_EVENTS.UPDATE_BADGE,
@@ -354,47 +323,42 @@ function useNavBadge(navKey, initialBadge) {
     );
     return () => unsubscribe();
   }, [navKey]);
-
   return badge;
 }
-
 function resolveInlineActionNode(action) {
   if (React.isValidElement(action)) return action;
-
   if (typeof action === "function") {
     const ActionComponent = action;
     return <ActionComponent />;
   }
-
   return null;
 }
-
 function useActionComponent(link, pathname, { isTop = false } = {}) {
   const { action, isLoading, isOverlay, path } = link;
   const { isVideo } = useBackgroundState();
-
   return useMemo(() => {
     if (isLoading || (isOverlay && !link.isStatus) || link.isSurface) {
       return null;
     }
-
     if (link.isStatus) {
       return action ? resolveInlineActionNode(action) : null;
     }
-
     if (isTop && isVideo) {
       return <NavMediaControls />;
     }
-
     if (
       !shouldRenderInlineAction(
-        { action, isLoading, isOverlay, path },
+        {
+          action,
+          isLoading,
+          isOverlay,
+          path,
+        },
         pathname,
       )
     ) {
       return null;
     }
-
     return resolveInlineActionNode(action);
   }, [
     action,
@@ -408,7 +372,6 @@ function useActionComponent(link, pathname, { isTop = false } = {}) {
     pathname,
   ]);
 }
-
 function Badge({ badge }) {
   return (
     <AnimatePresence mode="wait">
@@ -428,7 +391,6 @@ function Badge({ badge }) {
     </AnimatePresence>
   );
 }
-
 function LoadingItemContent() {
   return (
     <div className="flex h-auto w-full items-center gap-2.5">
@@ -447,7 +409,7 @@ function LoadingItemContent() {
         />
         <div
           className={cn(
-            "skeleton-block-soft h-3 w-80 rounded-full",
+            "skeleton-block h-3 w-80 rounded-full",
             NAV_SKELETON_PULSE_CLASS,
           )}
         />
@@ -455,9 +417,6 @@ function LoadingItemContent() {
     </div>
   );
 }
-
-// ── Card item rendering ──────────────────────────────────────────────────────
-
 function SurfaceStackItemContent({ link, surface, isActive }) {
   const SurfaceComponent = surface.surfaceComponent;
   const surfaceContent = surface.surfaceContent;
@@ -475,7 +434,6 @@ function SurfaceStackItemContent({ link, surface, isActive }) {
   const onBack =
     surface.onBack ||
     (surface.canGoBack ? surface.popStep || surface.closeSurface : null);
-
   return (
     <div
       aria-hidden={isActive ? undefined : true}
@@ -525,12 +483,10 @@ function SurfaceStackItemContent({ link, surface, isActive }) {
     </div>
   );
 }
-
 function SurfaceItemContent({ link }) {
   const surfaceStackEntries = link.surfaceStackEntries?.length
     ? link.surfaceStackEntries
     : [link];
-
   return (
     <>
       {surfaceStackEntries.map((surface) => (
@@ -544,22 +500,6 @@ function SurfaceItemContent({ link }) {
     </>
   );
 }
-
-export function resolveNavHeaderKey({
-  link,
-  description = "",
-  showVideoIcon = false,
-}) {
-  const statusPart = link?.isStatus
-    ? `status:${link.statusType || link.type || "status"}`
-    : "standard";
-  const identityPart = link?.path || link?.name || link?.id || "item";
-  const titlePart = link?.title || link?.name || "";
-  const descPart = description || "";
-  const iconPart = showVideoIcon ? "video" : link?.icon || "no-icon";
-  return `${statusPart}:${identityPart}:${iconPart}:${titlePart}:${descPart}`;
-}
-
 export const NavCardHeader = memo(function NavCardHeader({
   link,
   itemStyle,
@@ -574,9 +514,12 @@ export const NavCardHeader = memo(function NavCardHeader({
   contextCommands,
 }) {
   const headerKey = useMemo(() => {
-    return resolveNavHeaderKey({ link, description, showVideoIcon });
+    return resolveNavHeaderKey({
+      link,
+      description,
+      showVideoIcon,
+    });
   }, [description, link, showVideoIcon]);
-
   return (
     <div className="relative min-h-[48px] w-full">
       <AnimatePresence mode="popLayout" initial={false}>
@@ -652,7 +595,6 @@ export const NavCardHeader = memo(function NavCardHeader({
     </div>
   );
 });
-
 function StandardItemContent({
   link,
   isTop,
@@ -674,10 +616,8 @@ function StandardItemContent({
     isStatus: link.isStatus,
   });
   const description = link.description;
-
   const effectiveIconOverlay = showVideoIcon ? null : link.iconOverlay;
   const isIconInteractive = Boolean(link.onClick || showVideoIcon);
-
   const handleIconClick = (event) => {
     if (showVideoIcon) {
       event.stopPropagation();
@@ -685,50 +625,65 @@ function StandardItemContent({
       toggleVideo();
       return;
     }
-
     if (link.onClick) {
       event.stopPropagation();
       event.preventDefault();
       link.onClick(event);
     }
   };
-
-  if (isTop && isHudActive) {
-    return (
-      <div className="relative flex w-full items-center justify-between">
-        <NavHudView clearHud={clearHud} hud={hud} pathname={pathname} />
-      </div>
-    );
-  }
-
   return (
-    <div className="relative flex h-auto w-full flex-col gap-2.5">
-      <NavCardHeader
-        link={link}
-        itemStyle={itemStyle}
-        badge={badge}
-        showVideoIcon={showVideoIcon}
-        isPlaying={isPlaying}
-        effectiveIconOverlay={effectiveIconOverlay}
-        isIconInteractive={isIconInteractive}
-        handleIconClick={handleIconClick}
-        description={description}
-        isTop={isTop}
-        contextCommands={contextCommands}
-      />
-
-      {footerNode ? (
-        <div
-          key="nav-surface-footer"
-          className="relative z-10 w-full overflow-visible"
+    <AnimatePresence mode="wait" initial={false}>
+      {isTop && isHudActive ? (
+        <motion.div
+          key={`nav-hud:${hud?.id || "active"}`}
+          variants={navHudVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          transition={NAV_HUD_TRANSITION}
+          style={NAV_COMPOSITOR_STYLE}
+          className="relative flex w-full items-center justify-between"
         >
-          {footerNode}
-        </div>
-      ) : null}
-    </div>
+          <NavHudView clearHud={clearHud} hud={hud} pathname={pathname} />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="nav-standard-content"
+          variants={navFadeVariants}
+          initial={false}
+          animate="visible"
+          exit="exit"
+          transition={NAV_TEXT_ENTER_TRANSITION}
+          style={NAV_COMPOSITOR_STYLE}
+          className="relative flex h-auto w-full flex-col gap-2.5"
+        >
+          <NavCardHeader
+            link={link}
+            itemStyle={itemStyle}
+            badge={badge}
+            showVideoIcon={showVideoIcon}
+            isPlaying={isPlaying}
+            effectiveIconOverlay={effectiveIconOverlay}
+            isIconInteractive={isIconInteractive}
+            handleIconClick={handleIconClick}
+            description={description}
+            isTop={isTop}
+            contextCommands={contextCommands}
+          />
+
+          {footerNode ? (
+            <div
+              key="nav-surface-footer"
+              className="relative z-10 w-full overflow-visible"
+            >
+              {footerNode}
+            </div>
+          ) : null}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
-
 export const NavCardItem = memo(
   forwardRef(function Item(
     {
@@ -738,6 +693,7 @@ export const NavCardItem = memo(
       onMouseLeave,
       compact,
       globalCompact,
+      restoreFromCompact = false,
       expanded,
       position,
       onClick,
@@ -753,22 +709,19 @@ export const NavCardItem = memo(
     ref,
   ) {
     const [isHovered, setIsHovered] = useState(false);
-
     const pathname = usePathname();
     const router = useRouter();
     const { cancelRoutePrefetch, prefetchRoute } = useRoutePrefetch(router);
-
     const { isVideo } = useBackgroundState();
     const isTopHudActive = Boolean(isTop && isHudActive);
     const showVideoScrubber = Boolean(
       isTop && isVideo && !link.isSurface && !link.isStatus,
     );
-
     const badge = useNavBadge(link.name?.toLowerCase(), link.badge);
-    const ActionComponent = useActionComponent(link, pathname, { isTop });
-
+    const ActionComponent = useActionComponent(link, pathname, {
+      isTop,
+    });
     const cardContentRef = useRef(null);
-
     const showBorder = expanded ? isHovered : isHovered || isStackHovered;
     const effectiveStyle = useMemo(() => {
       if (!statusStyle) return link.style;
@@ -794,7 +747,6 @@ export const NavCardItem = memo(
         },
       };
     }, [link.style, statusStyle]);
-
     const itemStyle = useMemo(
       () =>
         resolveNavVisualStyle(effectiveStyle, {
@@ -803,7 +755,6 @@ export const NavCardItem = memo(
         }),
       [effectiveStyle, isActive, showBorder],
     );
-
     const renderedActionNode =
       link.isSurface || isTopHudActive ? null : ActionComponent;
     const hasNestedInteractiveContent = Boolean(
@@ -815,7 +766,6 @@ export const NavCardItem = memo(
       : isTopHudActive
         ? `hud:${hud?.id || "active"}`
         : `standard:${itemIdentity}`;
-
     useElementHeight(
       onContentHeightChange,
       cardContentRef,
@@ -832,51 +782,51 @@ export const NavCardItem = memo(
         }),
       ),
     );
-
     const handleMouseEnter = () => {
       if (link.isOverlay) return;
       setIsHovered(true);
-
       if (
-        resolveNavigationRoutePolicy({ href: link.path, item: link }).prefetch
+        resolveNavigationRoutePolicy({
+          href: link.path,
+          item: link,
+        }).prefetch
       ) {
         prefetchRoute(link.path);
       }
       if (!expanded) onMouseEnter?.();
     };
-
     const handleMouseLeave = () => {
       if (link.isOverlay) return;
       cancelRoutePrefetch(link.path);
       setIsHovered(false);
       if (!expanded) onMouseLeave?.();
     };
-
     const handleFocus = () => {
       if (link.isOverlay) return;
       setIsHovered(true);
       if (
-        resolveNavigationRoutePolicy({ href: link.path, item: link }).prefetch
+        resolveNavigationRoutePolicy({
+          href: link.path,
+          item: link,
+        }).prefetch
       ) {
-        prefetchRoute(link.path, { immediate: true });
+        prefetchRoute(link.path, {
+          immediate: true,
+        });
       }
       onMouseEnter?.();
     };
-
     const handleBlur = () => {
       if (link.isOverlay) return;
       setIsHovered(false);
       onMouseLeave?.();
     };
-
     const handleKeyDown = (event) => {
       if (event.target !== event.currentTarget) return;
       if (event.key !== "Enter" && event.key !== " ") return;
-
       event.preventDefault();
       onClick?.(event);
     };
-
     const renderContent = () => {
       if (link.isLoading) return <LoadingItemContent />;
       return (
@@ -903,7 +853,9 @@ export const NavCardItem = memo(
                     exit="exit"
                     transition={NAV_ACTION_DISMISS_TRANSITION}
                     className="flow-root overflow-visible"
-                    style={{ overflow: "visible" }}
+                    style={{
+                      overflow: "visible",
+                    }}
                     onClick={(event) => event.stopPropagation()}
                   >
                     <Suspense>{renderedActionNode}</Suspense>
@@ -917,7 +869,9 @@ export const NavCardItem = memo(
                     exit="exit"
                     transition={NAV_FADE_TRANSITION}
                     className="flow-root overflow-visible"
-                    style={{ overflow: "visible" }}
+                    style={{
+                      overflow: "visible",
+                    }}
                     onClick={(event) => event.stopPropagation()}
                   >
                     <Suspense>{renderedActionNode}</Suspense>
@@ -929,7 +883,6 @@ export const NavCardItem = memo(
         />
       );
     };
-
     const {
       className: cardClassName,
       style: cardStyle,
@@ -942,19 +895,29 @@ export const NavCardItem = memo(
       isAnchoredToBottom: link.isSurface,
       visibleCount: (globalCompact || link.isStatus) && !isStackHovered ? 1 : 3,
     });
-
     const cardDelay = useMemo(
-      () => getNavCardDelay({ expanded, isStackHovered, position }),
+      () =>
+        getNavCardDelay({
+          expanded,
+          isStackHovered,
+          position,
+        }),
       [expanded, isStackHovered, position],
     );
-
     return (
       <motion.div
         ref={ref}
         className={cardClassName}
         data-controls-anchor={isTop ? "true" : undefined}
         style={cardStyle}
-        initial={false}
+        initial={
+          restoreFromCompact && position > 0
+            ? getNavItemCompactRestoreValues({
+                motionValues,
+                position,
+              })
+            : false
+        }
         animate={getNavItemAnimateValues({
           motionValues,
           expanded,
@@ -964,8 +927,12 @@ export const NavCardItem = memo(
         transition={getNavItemTransition({
           expanded,
           isStackHovered,
+          isRestoringDeck: restoreFromCompact,
           position,
           delay: cardDelay,
+        })}
+        exit={getNavItemCompactExitValues({
+          position,
         })}
         role={hasNestedInteractiveContent ? "group" : "button"}
         aria-label={
@@ -993,11 +960,10 @@ export const NavCardItem = memo(
           {compact && (
             <motion.div
               key="compact-title-overlay"
-              variants={navFadeVariants}
+              variants={navCompactTitleVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              transition={NAV_FADE_TRANSITION}
               className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-[38px] items-center justify-center px-4"
             >
               <div className="min-w-0">
@@ -1025,7 +991,10 @@ export const NavCardItem = memo(
             expanded,
             position,
           })}
-          transition={NAV_FADE_TRANSITION}
+          transition={getNavCardContentTransition({
+            compact,
+            isRestoringFromCompact: restoreFromCompact,
+          })}
           style={{
             ...NAV_COMPOSITOR_STYLE,
             pointerEvents:

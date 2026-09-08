@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
-
 import {
   NAVIGATION_CONTINUITY_EVENTS,
   NAVIGATION_CONTINUITY_MAX_ENTRIES,
@@ -12,50 +11,30 @@ import {
   NAVIGATION_TRANSACTION_STATUS,
   NAVIGATION_TRANSACTION_TIMEOUT_MS,
 } from "./constants";
-import { isSafeInternalHref, isSamePath, normalizePath } from "./utils";
-
-// ── Navigation transactions ──────────────────────────────────────────────────
-
-/**
- * Builds a stable client-side navigation identity from all route-addressable parts.
- * @param {{hash?: string, pathname?: string, search?: string}} parts - Browser location parts
- * @returns {string} Path, query string, and hash in browser order
- */
-export function getNavigationLocationKey({
-  hash = "",
-  pathname = "/",
-  search = "",
-} = {}) {
-  const normalizedPathname = String(pathname || "/").trim() || "/";
-  const normalizedSearch = String(search || "").trim();
-  const normalizedHash = String(hash || "").trim();
-  const query = normalizedSearch
-    ? normalizedSearch.startsWith("?")
-      ? normalizedSearch
-      : `?${normalizedSearch}`
-    : "";
-  const fragment = normalizedHash
-    ? normalizedHash.startsWith("#")
-      ? normalizedHash
-      : `#${normalizedHash}`
-    : "";
-
-  return `${normalizedPathname}${query}${fragment}`;
-}
-
-/** Creates the initial transaction snapshot for navigation work. */
+import {
+  getNavigationLocationKey,
+  isInlineActionPathMatch,
+  isPathPrefix,
+  isSafeInternalHref,
+  isSameItem,
+  isSamePath,
+  normalizePath,
+} from "./utils";
+export {
+  getNavigationLocationKey,
+  isInlineActionPathMatch,
+  isPathPrefix,
+  isSafeInternalHref,
+  isSameItem,
+  isSamePath,
+  normalizePath,
+};
 export function createNavigationTransactionState() {
   return {
     active: null,
     last: null,
   };
 }
-
-/**
- * Creates one immutable navigation transaction descriptor.
- * @param {object} options - Navigation source, destination, and identity
- * @returns {object} Pending transaction descriptor
- */
 export function createNavigationTransaction({
   from = "",
   id,
@@ -72,7 +51,6 @@ export function createNavigationTransaction({
     to: String(to || ""),
   };
 }
-
 function settleNavigationTransaction(transaction, action, status) {
   return {
     ...transaction,
@@ -82,7 +60,6 @@ function settleNavigationTransaction(transaction, action, status) {
     status,
   };
 }
-
 function getTransactionStatusForEvent(eventType) {
   if (eventType === NAVIGATION_TRANSACTION_EVENTS.COMPLETE) {
     return NAVIGATION_TRANSACTION_STATUS.COMPLETED;
@@ -95,27 +72,20 @@ function getTransactionStatusForEvent(eventType) {
   }
   return NAVIGATION_TRANSACTION_STATUS.TIMED_OUT;
 }
-
-/**
- * Reduces one navigation transaction event while rejecting stale completions.
- * @param {{active: object|null, last: object|null}} state - Current transaction snapshot
- * @param {object} action - Transaction event
- * @returns {{active: object|null, last: object|null}} Next transaction snapshot
- */
 export function navigationTransactionReducer(state, action) {
   switch (action?.type) {
     case NAVIGATION_TRANSACTION_EVENTS.START: {
       const nextTransaction = action.transaction;
       if (nextTransaction?.id == null) return state;
-
       const supersededTransaction = state.active
         ? settleNavigationTransaction(
             state.active,
-            { reason: NAVIGATION_TRANSACTION_REASON.SUPERSEDED },
+            {
+              reason: NAVIGATION_TRANSACTION_REASON.SUPERSEDED,
+            },
             NAVIGATION_TRANSACTION_STATUS.CANCELLED,
           )
         : state.last;
-
       return {
         active: nextTransaction,
         last: supersededTransaction,
@@ -126,7 +96,6 @@ export function navigationTransactionReducer(state, action) {
     case NAVIGATION_TRANSACTION_EVENTS.FAIL:
     case NAVIGATION_TRANSACTION_EVENTS.TIME_OUT: {
       if (!state.active || state.active.id !== action.id) return state;
-
       return {
         active: null,
         last: settleNavigationTransaction(
@@ -140,12 +109,6 @@ export function navigationTransactionReducer(state, action) {
       return state;
   }
 }
-
-/**
- * Owns one active route transaction, supersedes stale work, and provides a bounded timeout.
- * @param {object} [options] - Timeout and timeout callback configuration
- * @returns {object} Transaction state and lifecycle controls
- */
 export function useNavigationTransactions({
   onTransactionEvent = null,
   onTimeout = null,
@@ -161,29 +124,29 @@ export function useNavigationTransactions({
   const timeoutRef = useRef(null);
   const onTimeoutRef = useRef(onTimeout);
   const onTransactionEventRef = useRef(onTransactionEvent);
-
   useEffect(() => {
     onTimeoutRef.current = onTimeout;
   }, [onTimeout]);
-
   useEffect(() => {
     onTransactionEventRef.current = onTransactionEvent;
   }, [onTransactionEvent]);
-
   const clearTransactionTimeout = useCallback(() => {
     if (timeoutRef.current === null) return;
     clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
   }, []);
-
   const settleTransaction = useCallback(
     (id, type, details = {}) => {
       const activeTransaction = activeTransactionRef.current;
       if (!activeTransaction || activeTransaction.id !== id) return false;
-
       clearTransactionTimeout();
       activeTransactionRef.current = null;
-      const event = { ...details, endedAt: Date.now(), id, type };
+      const event = {
+        ...details,
+        endedAt: Date.now(),
+        id,
+        type,
+      };
       const settledTransaction = settleNavigationTransaction(
         activeTransaction,
         event,
@@ -198,7 +161,6 @@ export function useNavigationTransactions({
     },
     [clearTransactionTimeout],
   );
-
   const beginTransaction = useCallback(
     ({ from, source, to } = {}) => {
       const activeTransaction = activeTransactionRef.current;
@@ -211,7 +173,6 @@ export function useNavigationTransactions({
           },
         );
       }
-
       const transaction = createNavigationTransaction({
         from,
         id: ++nextTransactionIdRef.current,
@@ -219,12 +180,14 @@ export function useNavigationTransactions({
         to,
       });
       activeTransactionRef.current = transaction;
-      dispatch({ transaction, type: NAVIGATION_TRANSACTION_EVENTS.START });
+      dispatch({
+        transaction,
+        type: NAVIGATION_TRANSACTION_EVENTS.START,
+      });
       onTransactionEventRef.current?.({
         transaction,
         type: NAVIGATION_TRANSACTION_EVENTS.START,
       });
-
       const safeTimeout = Number(timeoutMs);
       if (Number.isFinite(safeTimeout) && safeTimeout > 0) {
         timeoutRef.current = setTimeout(() => {
@@ -239,23 +202,22 @@ export function useNavigationTransactions({
           ) {
             return;
           }
-
           onTimeoutRef.current?.(transaction);
         }, safeTimeout);
       }
-
       return transaction;
     },
     [settleTransaction, timeoutMs],
   );
-
   const completeTransaction = useCallback(
     (id) => settleTransaction(id, NAVIGATION_TRANSACTION_EVENTS.COMPLETE),
     [settleTransaction],
   );
   const cancelTransaction = useCallback(
     (id, reason = null) =>
-      settleTransaction(id, NAVIGATION_TRANSACTION_EVENTS.CANCEL, { reason }),
+      settleTransaction(id, NAVIGATION_TRANSACTION_EVENTS.CANCEL, {
+        reason,
+      }),
     [settleTransaction],
   );
   const cancelActiveTransaction = useCallback(
@@ -268,7 +230,9 @@ export function useNavigationTransactions({
   );
   const failTransaction = useCallback(
     (id, error) =>
-      settleTransaction(id, NAVIGATION_TRANSACTION_EVENTS.FAIL, { error }),
+      settleTransaction(id, NAVIGATION_TRANSACTION_EVENTS.FAIL, {
+        error,
+      }),
     [settleTransaction],
   );
   const completeTransactionForPath = useCallback(
@@ -284,14 +248,12 @@ export function useNavigationTransactions({
     (id) => activeTransactionRef.current?.id === id,
     [],
   );
-
   useEffect(() => {
     return () => {
       clearTransactionTimeout();
       activeTransactionRef.current = null;
     };
   }, [clearTransactionTimeout]);
-
   return useMemo(
     () => ({
       activeTransaction: state.active,
@@ -317,13 +279,9 @@ export function useNavigationTransactions({
     ],
   );
 }
-
-// ── Route topology and continuity ────────────────────────────────────────────
-
 function getTopologyNodeId(item, index) {
   return item?.id || item?.path || item?.name || `navigation-node-${index}`;
 }
-
 function flattenNavigationTopology(
   items,
   parentId = null,
@@ -331,10 +289,8 @@ function flattenNavigationTopology(
   nodes = [],
 ) {
   if (!Array.isArray(items)) return nodes;
-
   items.forEach((item) => {
     if (!item || typeof item !== "object") return;
-
     const id = getTopologyNodeId(item, nodes.length);
     nodes.push({
       depth,
@@ -344,41 +300,27 @@ function flattenNavigationTopology(
     });
     flattenNavigationTopology(item.children, id, depth + 1, nodes);
   });
-
   return nodes;
 }
-
 function resolveTopologyActiveNode(nodes, pathname) {
   const normalizedPath = normalizePath(pathname || "");
   return nodes.find((node) => isSamePath(node.path, normalizedPath)) || null;
 }
-
 function resolveTopologyAncestors(nodes, activeNode) {
   if (!activeNode) return [];
-
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const ancestors = [];
   let currentNode = activeNode;
-
   while (currentNode?.parentId) {
     currentNode = nodesById.get(currentNode.parentId) || null;
     if (currentNode) ancestors.unshift(currentNode);
   }
-
   return ancestors;
 }
-
-/**
- * Builds a normalized route tree that is independent of any router or UI.
- * @param {Array<object>} items - Nested navigation items
- * @param {object} [options] - Active-route configuration
- * @returns {{activeNode: object|null, activePath: string, ancestors: Array<object>, nodes: Array<object>}} Route topology
- */
 export function createNavigationTopology(items = [], { pathname = "" } = {}) {
   const nodes = flattenNavigationTopology(items);
   const activePath = normalizePath(pathname || "");
   const activeNode = resolveTopologyActiveNode(nodes, activePath);
-
   return {
     activeNode,
     activePath,
@@ -386,13 +328,6 @@ export function createNavigationTopology(items = [], { pathname = "" } = {}) {
     nodes,
   };
 }
-
-/**
- * Returns the path chain for a route represented by a navigation topology.
- * @param {object} topology - Topology created by createNavigationTopology
- * @param {string} [pathname] - Target path, defaulting to the active path
- * @returns {Array<object>} Root-to-target topology nodes
- */
 export function resolveNavigationTopologyPath(
   topology,
   pathname = topology?.activePath,
@@ -403,7 +338,6 @@ export function resolveNavigationTopologyPath(
     ? [...resolveTopologyAncestors(nodes, activeNode), activeNode]
     : [];
 }
-
 function normalizeContinuitySnapshot(snapshot) {
   if (
     snapshot == null ||
@@ -411,27 +345,24 @@ function normalizeContinuitySnapshot(snapshot) {
     Array.isArray(snapshot)
   )
     return {};
-  return { ...snapshot };
+  return {
+    ...snapshot,
+  };
 }
-
-/** Creates an empty, bounded continuity history. */
 export function createNavigationContinuityState() {
-  return { entries: [], returnHandoffs: [] };
+  return {
+    entries: [],
+    returnHandoffs: [],
+  };
 }
-
 function normalizeNavigationReturnValue(value) {
   if (value == null || typeof value !== "object") return value ?? null;
   if (Array.isArray(value)) return [...value];
-  return { ...value };
+  return {
+    ...value,
+  };
 }
-
 let navigationReturnHandoffSequence = 0;
-
-/**
- * Creates a one-time result delivery for a route reached after a surface flow settles.
- * @param {object} [input] - Return target, originating flow, and result payload
- * @returns {object|null} Normalized return handoff
- */
 export function createNavigationReturnHandoff({
   data = null,
   flowId = null,
@@ -442,7 +373,6 @@ export function createNavigationReturnHandoff({
   if (!isSafeInternalHref(pathname)) return null;
   const path = normalizePath(pathname || "");
   if (!path) return null;
-
   const resolvedTimestamp = Number.isFinite(Number(timestamp))
     ? Number(timestamp)
     : Date.now();
@@ -455,12 +385,6 @@ export function createNavigationReturnHandoff({
     timestamp: resolvedTimestamp,
   };
 }
-
-/**
- * Creates a recoverable route snapshot.
- * @param {object} [options] - Path, scroll position, focus key, and caller snapshot
- * @returns {object|null} Normalized continuity entry
- */
 export function createNavigationContinuityEntry({
   focusKey = null,
   pathname = "",
@@ -470,7 +394,6 @@ export function createNavigationContinuityEntry({
 } = {}) {
   const path = normalizePath(pathname || "");
   if (!path) return null;
-
   const numericScrollY = Number(scrollY);
   return {
     focusKey: typeof focusKey === "string" && focusKey ? focusKey : null,
@@ -482,13 +405,6 @@ export function createNavigationContinuityEntry({
       : Date.now(),
   };
 }
-
-/**
- * Records, removes, and clears route continuity without mutating caller state.
- * @param {{entries: Array<object>}} state - Current continuity state
- * @param {object} action - Continuity event
- * @returns {{entries: Array<object>}} Next continuity state
- */
 export function navigationContinuityReducer(state, action) {
   const currentState = state || createNavigationContinuityState();
   const returnHandoffs = Array.isArray(currentState.returnHandoffs)
@@ -499,7 +415,6 @@ export function navigationContinuityReducer(state, action) {
       ? createNavigationContinuityState()
       : currentState;
   }
-
   if (action?.type === NAVIGATION_CONTINUITY_EVENTS.DELIVER_RETURN) {
     const handoff = action.handoff;
     if (!handoff?.id || !handoff.path) return currentState;
@@ -515,7 +430,6 @@ export function navigationContinuityReducer(state, action) {
       ].slice(-maxEntries),
     };
   }
-
   if (action?.type === NAVIGATION_CONTINUITY_EVENTS.CONSUME_RETURN) {
     const handoffId =
       typeof action.handoffId === "string" ? action.handoffId : "";
@@ -525,24 +439,27 @@ export function navigationContinuityReducer(state, action) {
     );
     return nextReturnHandoffs.length === returnHandoffs.length
       ? currentState
-      : { ...currentState, returnHandoffs: nextReturnHandoffs };
+      : {
+          ...currentState,
+          returnHandoffs: nextReturnHandoffs,
+        };
   }
-
   if (action?.type === NAVIGATION_CONTINUITY_EVENTS.REMOVE) {
     const path = normalizePath(action.path || "");
     const entries = currentState.entries.filter((entry) => entry.path !== path);
     return entries.length === currentState.entries.length
       ? currentState
-      : { ...currentState, entries };
+      : {
+          ...currentState,
+          entries,
+        };
   }
-
   if (
     action?.type !== NAVIGATION_CONTINUITY_EVENTS.RECORD ||
     !action.entry?.path
   ) {
     return currentState;
   }
-
   const maxEntries = Math.max(
     1,
     Number(action.maxEntries) || NAVIGATION_CONTINUITY_MAX_ENTRIES,
@@ -551,26 +468,15 @@ export function navigationContinuityReducer(state, action) {
     ...currentState.entries.filter((entry) => entry.path !== action.entry.path),
     action.entry,
   ].slice(-maxEntries);
-  return { ...currentState, entries };
+  return {
+    ...currentState,
+    entries,
+  };
 }
-
-/**
- * Finds the last continuity entry for a path.
- * @param {{entries: Array<object>}} state - Continuity state
- * @param {string} pathname - Route path
- * @returns {object|null} Matching continuity entry
- */
 export function resolveNavigationContinuityEntry(state, pathname) {
   const path = normalizePath(pathname || "");
   return state?.entries?.find((entry) => entry.path === path) || null;
 }
-
-/**
- * Lists unconsumed surface-flow results for one route in delivery order.
- * @param {{returnHandoffs?: Array<object>}} state - Continuity state
- * @param {string} pathname - Return target path
- * @returns {Array<object>} Matching return handoffs
- */
 export function resolveNavigationReturnHandoffs(state, pathname) {
   const path = normalizePath(pathname || "");
   if (!path) return [];
@@ -578,12 +484,6 @@ export function resolveNavigationReturnHandoffs(state, pathname) {
     (handoff) => handoff.path === path,
   );
 }
-
-/**
- * Owns route continuity snapshots and restores browser scroll only on request.
- * @param {object} [options] - Bounded history configuration
- * @returns {object} Continuity state and controls
- */
 export function useNavigationContinuity({
   maxEntries = NAVIGATION_CONTINUITY_MAX_ENTRIES,
 } = {}) {
@@ -593,11 +493,9 @@ export function useNavigationContinuity({
     createNavigationContinuityState,
   );
   const stateRef = useRef(state);
-
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-
   const remember = useCallback(
     (pathname, options = {}) => {
       const entry = createNavigationContinuityEntry({
@@ -617,12 +515,17 @@ export function useNavigationContinuity({
     },
     [maxEntries],
   );
-
   const remove = useCallback((pathname) => {
-    dispatch({ path: pathname, type: NAVIGATION_CONTINUITY_EVENTS.REMOVE });
+    dispatch({
+      path: pathname,
+      type: NAVIGATION_CONTINUITY_EVENTS.REMOVE,
+    });
   }, []);
   const clear = useCallback(
-    () => dispatch({ type: NAVIGATION_CONTINUITY_EVENTS.CLEAR }),
+    () =>
+      dispatch({
+        type: NAVIGATION_CONTINUITY_EVENTS.CLEAR,
+      }),
     [],
   );
   const get = useCallback(
@@ -630,7 +533,10 @@ export function useNavigationContinuity({
     [],
   );
   const deliverReturn = useCallback((pathname, input = {}) => {
-    const handoff = createNavigationReturnHandoff({ pathname, ...input });
+    const handoff = createNavigationReturnHandoff({
+      pathname,
+      ...input,
+    });
     if (!handoff) return null;
     dispatch({
       handoff,
@@ -668,7 +574,10 @@ export function useNavigationContinuity({
       const targetFocusKey = focusKey || entry?.focusKey;
       requestAnimationFrame(() => {
         if (restoreScroll && entry) {
-          window.scrollTo({ top: entry.scrollY, behavior: "auto" });
+          window.scrollTo({
+            top: entry.scrollY,
+            behavior: "auto",
+          });
         }
         if (!targetFocusKey || typeof document === "undefined") return;
         const target = Array.from(
@@ -679,7 +588,9 @@ export function useNavigationContinuity({
         );
         if (!target || typeof target.focus !== "function") return;
         try {
-          target.focus({ preventScroll: true });
+          target.focus({
+            preventScroll: true,
+          });
         } catch {
           target.focus();
         }
@@ -688,7 +599,6 @@ export function useNavigationContinuity({
     },
     [],
   );
-
   return useMemo(
     () => ({
       clear,
@@ -716,23 +626,13 @@ export function useNavigationContinuity({
     ],
   );
 }
-
-// ── Route policy and prefetch intent ──────────────────────────────────────────
-
 function getRoutePolicyOverrides(item) {
   const policy = item?.navigationPolicy;
   return policy && typeof policy === "object" ? policy : {};
 }
-
 function resolvePolicyBoolean(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
-
-/**
- * Resolves route-specific navigation decisions with optional item-level overrides.
- * @param {object} options - Destination href and optional route item
- * @returns {{canNavigate: boolean, clearTransientState: boolean, dismissSurfaces: boolean, prefetch: boolean}} Route policy
- */
 export function resolveNavigationRoutePolicy({ href, item = null } = {}) {
   const overrides = getRoutePolicyOverrides(item);
   const canNavigate = isSafeInternalHref(href);
@@ -742,7 +642,6 @@ export function resolveNavigationRoutePolicy({ href, item = null } = {}) {
     !item?.isOverlay &&
     !item?.isSurface &&
     !item?.prefetchDisabled;
-
   return {
     canNavigate,
     clearTransientState: resolvePolicyBoolean(
@@ -754,44 +653,30 @@ export function resolveNavigationRoutePolicy({ href, item = null } = {}) {
       resolvePolicyBoolean(overrides.prefetch, canPrefetch) && canPrefetch,
   };
 }
-
-/**
- * Schedules intentional route prefetches while deduplicating cached destinations.
- * @param {object} router - Next.js router instance
- * @param {object} [options] - Prefetch intent timing configuration
- * @returns {{cancelRoutePrefetch: Function, prefetchRoute: Function}} Prefetch controls
- */
 export function useRoutePrefetch(
   router,
   { intentDelayMs = NAVIGATION_PREFETCH_INTENT_DELAY_MS } = {},
 ) {
   const routeStatesRef = useRef(new Map());
-
   const cancelRoutePrefetch = useCallback((href) => {
     const routeState = routeStatesRef.current.get(href);
     if (routeState?.timeoutId == null) return false;
-
     clearTimeout(routeState.timeoutId);
     routeStatesRef.current.delete(href);
     return true;
   }, []);
-
   const prefetchRoute = useCallback(
     (href, { immediate = false } = {}) => {
       if (!isSafeInternalHref(href) || typeof router?.prefetch !== "function")
         return false;
-
       const routeState = routeStatesRef.current.get(href);
       if (routeState?.isPrefetched || routeState?.timeoutId != null)
         return false;
-
       const startPrefetch = () => {
         const currentState = routeStatesRef.current.get(href);
         if (!currentState) return;
-
         currentState.timeoutId = null;
         currentState.isPrefetched = true;
-
         try {
           router.prefetch(href, {
             onInvalidate: () => {
@@ -809,25 +694,23 @@ export function useRoutePrefetch(
           }
         }
       };
-
       const delay = immediate ? 0 : Math.max(0, Number(intentDelayMs) || 0);
-      const nextState = { isPrefetched: false, timeoutId: null };
+      const nextState = {
+        isPrefetched: false,
+        timeoutId: null,
+      };
       routeStatesRef.current.set(href, nextState);
-
       if (delay === 0) {
         startPrefetch();
       } else {
         nextState.timeoutId = setTimeout(startPrefetch, delay);
       }
-
       return true;
     },
     [intentDelayMs, router],
   );
-
   useEffect(() => {
     const routeStates = routeStatesRef.current;
-
     return () => {
       routeStates.forEach((routeState) => {
         if (routeState.timeoutId != null) clearTimeout(routeState.timeoutId);
@@ -835,9 +718,21 @@ export function useRoutePrefetch(
       routeStates.clear();
     };
   }, []);
-
   return useMemo(
-    () => ({ cancelRoutePrefetch, prefetchRoute }),
+    () => ({
+      cancelRoutePrefetch,
+      prefetchRoute,
+    }),
     [cancelRoutePrefetch, prefetchRoute],
   );
+}
+export function formatSlugTitle(slug = "") {
+  if (!slug) return "";
+  return String(slug)
+    .split(/[-_]+/)
+    .map((word) =>
+      word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "",
+    )
+    .filter(Boolean)
+    .join(" ");
 }

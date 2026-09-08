@@ -10,18 +10,17 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-
 import { Z_INDEX } from "@/shared";
 import { cn } from "@/shared/utils";
 import { Button, Icon } from "@/ui/primitives";
-import { ModuleError } from "../error-boundary";
-import { useModalRegistry } from "../registry";
+import { ModuleError } from "@/modules/error-boundary";
+import { useModalRegistry } from "@/modules/registry";
 import {
   MODAL_BREAKPOINTS,
   MODAL_CHROME,
   MODAL_POSITION_CLASSES,
   MODAL_POSITIONS,
-} from "./config";
+} from "./constants";
 import {
   MODAL_CONTENT_VARIANTS,
   MODAL_FOOTER_VARIANTS,
@@ -41,16 +40,14 @@ import {
   resolveActivePosition,
   trapFocus,
   useModal,
-} from "./runtime";
-
+} from "./provider";
 export {
   MODAL_BREAKPOINTS,
   MODAL_CHROME,
   MODAL_POSITION_CLASSES,
   MODAL_POSITIONS,
-  resolveModalHeader,
-} from "./config";
-
+} from "./constants";
+export { resolveModalHeader } from "./utils";
 export {
   MODAL_BACKDROP_VARIANTS,
   MODAL_CONTENT_STAGGER,
@@ -69,7 +66,6 @@ export {
   getModalTransition,
   modalBackdropVariants,
 } from "./motion";
-
 function dispatchSmoothScrollLock(locked) {
   window.dispatchEvent(
     new CustomEvent(SMOOTH_SCROLL_LOCK_EVENT, {
@@ -80,26 +76,20 @@ function dispatchSmoothScrollLock(locked) {
     }),
   );
 }
-
-// ── Layout primitives ──────────────────────────────────────────────────────
 const HEIGHT_CONSTRAINT_PATTERN = /(\s|^)(?:[\w-]+:)*(?:h|max-h)-/;
-
 function hasHeightConstraint(className) {
   return (
     typeof className === "string" && HEIGHT_CONSTRAINT_PATTERN.test(className)
   );
 }
-
 function isSideModal(position) {
   return (
     position === MODAL_POSITIONS.LEFT || position === MODAL_POSITIONS.RIGHT
   );
 }
-
 function getContainerClassName({ className, position }) {
   const sideModal = isSideModal(position);
   const usesExplicitHeightConstraint = hasHeightConstraint(className);
-
   return cn(
     "flex min-h-0 flex-col overflow-hidden",
     sideModal
@@ -110,22 +100,20 @@ function getContainerClassName({ className, position }) {
     className,
   );
 }
-
 function getBodyClassName(bodyClassName) {
   return cn(
     "min-h-0 w-full flex-1 overflow-y-auto overscroll-contain modal-body rounded-[20px]",
     bodyClassName,
   );
 }
-
 function resolveHeaderActions(actions, close) {
   if (typeof actions === "function") {
-    return actions({ close });
+    return actions({
+      close,
+    });
   }
-
   return actions || null;
 }
-
 function hasSlotContent(value) {
   return !(
     value === null ||
@@ -134,7 +122,6 @@ function hasSlotContent(value) {
     value === ""
   );
 }
-
 function isHeaderConfig(value) {
   return (
     value &&
@@ -143,12 +130,10 @@ function isHeaderConfig(value) {
     !isValidElement(value)
   );
 }
-
 function CloseButton({ close, label = "Close modal" }) {
   if (typeof close !== "function") {
     return null;
   }
-
   return (
     <Button
       type="button"
@@ -160,7 +145,6 @@ function CloseButton({ close, label = "Close modal" }) {
     </Button>
   );
 }
-
 export function Container({
   children,
   className,
@@ -178,7 +162,6 @@ export function Container({
   const resolvedPosition = position || headerConfig?.position || null;
   const showClose = headerConfig?.showClose === true;
   const headerActions = resolveHeaderActions(headerConfig?.actions, close);
-
   const headerLeft = hasCustomHeaderNode
     ? null
     : (headerConfig?.left ??
@@ -190,11 +173,9 @@ export function Container({
           {headerConfig.title}
         </h2>
       ) : null));
-
   const headerCenter = hasCustomHeaderNode
     ? header
     : (headerConfig?.center ?? null);
-
   const headerRight = hasCustomHeaderNode
     ? null
     : (headerConfig?.right ??
@@ -204,14 +185,12 @@ export function Container({
           {showClose ? <CloseButton close={close} /> : null}
         </div>
       ) : null));
-
   const headerIsSticky = Boolean(headerConfig?.sticky);
   const shouldRenderHeader =
     !isHeaderDisabled &&
     (hasSlotContent(headerLeft) ||
       hasSlotContent(headerCenter) ||
       hasSlotContent(headerRight));
-
   const footerConfig = footer && typeof footer === "object" ? footer : {};
   const footerLeft = footerConfig.left ?? null;
   const footerCenter = footerConfig.center ?? null;
@@ -222,7 +201,6 @@ export function Container({
     (hasSlotContent(footerLeft) ||
       hasSlotContent(footerCenter) ||
       hasSlotContent(footerRight));
-
   return (
     <div
       className={getContainerClassName({
@@ -296,9 +274,7 @@ export function Container({
     </div>
   );
 }
-
 export const ModalContainer = Container;
-
 function ModalLayerSwitcher({
   currentEntry,
   previousEntry,
@@ -335,8 +311,6 @@ function ModalLayerSwitcher({
     </div>
   );
 }
-
-// ── Portal and stacked modal presentation ──────────────────────────────────
 function ModalLayer({
   entry,
   stackIndex,
@@ -354,7 +328,6 @@ function ModalLayer({
       isMobileViewport,
     );
   }, [entry.position, entry.responsivePosition, isMobileViewport]);
-
   const SpecificModalComponent = registry.get(entry.modalType);
   const isPanelChrome = entry.chrome !== MODAL_CHROME.BARE;
   const isLeftModal = activePosition === MODAL_POSITIONS.LEFT;
@@ -364,22 +337,17 @@ function ModalLayer({
   const isBottomModalPosition = activePosition === MODAL_POSITIONS.BOTTOM;
   const isVerticalEdgeModal = isVerticalEdgePosition(activePosition);
   const previousEntry = modalStack[stackIndex - 1] || null;
-
   const titleId = `modal-title-${entry.id}`;
-
   const baseZIndex = Z_INDEX.MODAL + stackIndex * 2;
   const modalZIndex = baseZIndex + 1;
   const positionVariants = getModalPositionVariants(activePosition);
-
   useEffect(() => {
     if (!isTopModal || !modalRef.current) return;
-
     const previouslyFocusedElement = document.activeElement;
     const initialElements = getFocusableElements(modalRef.current);
     if (initialElements.length > 0) {
       initialElements[0].focus();
     }
-
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         closeModal(null, entry.id);
@@ -387,7 +355,6 @@ function ModalLayer({
       }
       trapFocus(event, modalRef.current);
     }
-
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -396,18 +363,18 @@ function ModalLayer({
       }
     };
   }, [closeModal, entry.id, isTopModal]);
-
   if (!SpecificModalComponent) {
     return null;
   }
-
   return (
     <div
       key={entry.id}
       role="dialog"
       aria-modal={isTopModal}
       aria-labelledby={entry.title ? titleId : undefined}
-      style={{ zIndex: baseZIndex }}
+      style={{
+        zIndex: baseZIndex,
+      }}
       className={cn(
         "pointer-events-none fixed inset-0 flex flex-col",
         MODAL_POSITION_CLASSES[activePosition] ||
@@ -435,7 +402,9 @@ function ModalLayer({
           isVerticalEdgeModal && "self-stretch",
           isSideModal && isMobileViewport && "self-stretch",
         )}
-        style={{ zIndex: modalZIndex }}
+        style={{
+          zIndex: modalZIndex,
+        }}
         onClick={(event) => event.stopPropagation()}
       >
         <div
@@ -520,7 +489,6 @@ function ModalLayer({
     </div>
   );
 }
-
 export function Modal() {
   const { modalStack = [], isOpen, closeModal } = useModal();
   const registry = useModalRegistry();
@@ -530,20 +498,17 @@ export function Modal() {
   );
   const topModalEntry = visibleModalStack[visibleModalStack.length - 1] || null;
   const isModalVisible = Boolean(isOpen && topModalEntry);
-
   const [mounted, setMounted] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(getViewportIsMobile);
   const [isTopExitSettling, setIsTopExitSettling] = useState(false);
   const previousTopModalIdRef = useRef(null);
   const bodyOverflowRef = useRef(null);
-
   useLayoutEffect(() => {
     const currentTopModalId = topModalEntry?.id || null;
     const previousTopModalId = previousTopModalIdRef.current;
     const previousTopStillMounted = visibleModalStack.some(
       (entry) => entry.id === previousTopModalId,
     );
-
     if (
       previousTopModalId &&
       previousTopModalId !== currentTopModalId &&
@@ -551,14 +516,11 @@ export function Modal() {
     ) {
       setIsTopExitSettling(true);
     }
-
     previousTopModalIdRef.current = currentTopModalId;
   }, [topModalEntry?.id, visibleModalStack]);
-
   useEffect(() => {
     setMounted(true);
   }, []);
-
   useEffect(() => {
     if (
       typeof window === "undefined" ||
@@ -566,15 +528,12 @@ export function Modal() {
     ) {
       return undefined;
     }
-
     const mediaQuery = window.matchMedia(
       `(max-width: ${MODAL_BREAKPOINTS.MOBILE_MAX_WIDTH}px)`,
     );
-
     function handleViewportChange() {
       setIsMobileViewport(mediaQuery.matches);
     }
-
     handleViewportChange();
     const subscribe =
       typeof mediaQuery.addEventListener === "function"
@@ -584,12 +543,9 @@ export function Modal() {
       typeof mediaQuery.removeEventListener === "function"
         ? () => mediaQuery.removeEventListener("change", handleViewportChange)
         : () => mediaQuery.removeListener?.(handleViewportChange);
-
     subscribe();
-
     return unsubscribe;
   }, []);
-
   useEffect(() => {
     if (isModalVisible) {
       if (bodyOverflowRef.current === null) {
@@ -600,10 +556,8 @@ export function Modal() {
       document.body.style.overflow = bodyOverflowRef.current;
       bodyOverflowRef.current = null;
     }
-
     dispatchSmoothScrollLock(isModalVisible);
   }, [isModalVisible]);
-
   useEffect(() => {
     return () => {
       if (bodyOverflowRef.current !== null) {
@@ -613,11 +567,9 @@ export function Modal() {
       dispatchSmoothScrollLock(false);
     };
   }, []);
-
   if (!mounted) {
     return null;
   }
-
   return createPortal(
     <>
       <AnimatePresence>
@@ -629,7 +581,9 @@ export function Modal() {
             animate="visible"
             exit="exit"
             className="fixed inset-0 cursor-pointer bg-black/60 backdrop-blur-sm"
-            style={{ zIndex: Z_INDEX.MODAL }}
+            style={{
+              zIndex: Z_INDEX.MODAL,
+            }}
             onClick={() => {
               if (!isTopExitSettling) {
                 closeModal(null, topModalEntry.id);
@@ -659,12 +613,7 @@ export function Modal() {
     document.body,
   );
 }
-
 export default Modal;
-
-// ── Provider composition and public hooks ───────────────────────────────────
-// Stack lifecycle lives in runtime.js; this entry point only supplies the
-// visual renderer so the public provider still mounts the portal automatically.
 export function ModalProvider({ children }) {
   return (
     <ModalRuntimeProvider modalRenderer={Modal}>
@@ -672,5 +621,4 @@ export function ModalProvider({ children }) {
     </ModalRuntimeProvider>
   );
 }
-
-export { useModal, useModalActions, useModalState } from "./runtime";
+export { useModal, useModalActions, useModalState } from "./provider";

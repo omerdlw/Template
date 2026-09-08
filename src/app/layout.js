@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistSans.className} ${zuume.variable} bg-zinc-950 text-zinc-100 antialiased`}
+        className={`${geistSans.variable} ${geistSans.className} ${zuume.variable} bg-black text-white antialiased`}
         suppressHydrationWarning
       >
         <Providers>{children}</Providers>

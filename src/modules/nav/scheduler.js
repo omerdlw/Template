@@ -1,6 +1,5 @@
 const DEFAULT_FRAME_MS = 16;
 const EMPTY_TASKS = Object.freeze([]);
-
 function getDefaultNow() {
   if (
     typeof performance !== "undefined" &&
@@ -10,7 +9,6 @@ function getDefaultNow() {
   }
   return Date.now();
 }
-
 function freezeTaskSnapshot(task) {
   return Object.freeze({
     createdAt: task.createdAt,
@@ -20,11 +18,6 @@ function freezeTaskSnapshot(task) {
     label: task.label,
   });
 }
-
-/**
- * Creates the timer seam used by Navigation runtime lifecycles.
- * Native handles and callbacks stay private; diagnostics expose metadata only.
- */
 export function createNavigationScheduler({
   cancelFrame = (frameId) => cancelAnimationFrame(frameId),
   clearTimer = (timerId) => clearTimeout(timerId),
@@ -35,8 +28,10 @@ export function createNavigationScheduler({
   const listeners = new Set();
   const tasks = new Map();
   let nextTaskId = 0;
-  let snapshot = Object.freeze({ pendingCount: 0, tasks: EMPTY_TASKS });
-
+  let snapshot = Object.freeze({
+    pendingCount: 0,
+    tasks: EMPTY_TASKS,
+  });
   const publish = () => {
     snapshot = Object.freeze({
       pendingCount: tasks.size,
@@ -52,10 +47,8 @@ export function createNavigationScheduler({
       }
     });
   };
-
   const schedule = (kind, callback, delayMs, options = {}) => {
     if (typeof callback !== "function") return null;
-
     const safeDelay = Math.max(0, Number(delayMs) || 0);
     const taskId = ++nextTaskId;
     const createdAt = now();
@@ -69,7 +62,6 @@ export function createNavigationScheduler({
       kind === "frame"
         ? requestFrame(invoke)
         : scheduleTimer(invoke, safeDelay);
-
     tasks.set(taskId, {
       cancel: kind === "frame" ? cancelFrame : clearTimer,
       createdAt,
@@ -85,7 +77,6 @@ export function createNavigationScheduler({
     publish();
     return taskId;
   };
-
   const cancel = (taskId) => {
     const task = tasks.get(taskId);
     if (!task) return false;
@@ -101,7 +92,6 @@ export function createNavigationScheduler({
     }
     return true;
   };
-
   return Object.freeze({
     cancel,
     cancelAll() {
@@ -137,10 +127,6 @@ export function createNavigationScheduler({
     },
   });
 }
-
-/**
- * Creates a virtual-clock scheduler for deterministic lifecycle and race tests.
- */
 export function createManualNavigationScheduler({
   frameMs = DEFAULT_FRAME_MS,
   startAt = 0,
@@ -149,7 +135,6 @@ export function createManualNavigationScheduler({
   let currentTime = Number(startAt) || 0;
   let nextRawTaskId = 0;
   let sequence = 0;
-
   const scheduleTimer = (callback, delayMs = 0) => {
     const rawTaskId = ++nextRawTaskId;
     rawTasks.set(rawTaskId, {
@@ -162,7 +147,6 @@ export function createManualNavigationScheduler({
   const clearTimer = (rawTaskId) => rawTasks.delete(rawTaskId);
   const requestFrame = (callback) =>
     scheduleTimer(() => callback(currentTime), frameMs);
-
   const scheduler = createNavigationScheduler({
     cancelFrame: clearTimer,
     clearTimer,
@@ -170,13 +154,11 @@ export function createManualNavigationScheduler({
     requestFrame,
     scheduleTimer,
   });
-
   const getNextTask = () =>
     [...rawTasks.entries()].sort(
       ([, left], [, right]) =>
         left.dueAt - right.dueAt || left.sequence - right.sequence,
     )[0] || null;
-
   const runUntil = (targetTime, maxTasks = 10_000) => {
     let executed = 0;
     while (executed < maxTasks) {
@@ -194,7 +176,6 @@ export function createManualNavigationScheduler({
     currentTime = targetTime;
     return executed;
   };
-
   return Object.freeze({
     ...scheduler,
     advanceBy(durationMs) {

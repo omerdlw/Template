@@ -1,13 +1,8 @@
-// ── Context-menu motion contract ────────────────────────────────────────────
-// The menu view consumes every enter, exit, item, and press token from this
-// file so context-menu animation remains consistent.
-
 const CONTEXT_MENU_EASINGS = Object.freeze({
   EMPHASIZED: Object.freeze([0.16, 1, 0.3, 1]),
   SOFT: Object.freeze([0.22, 1, 0.36, 1]),
   EXIT: Object.freeze([0.7, 0, 0.84, 0]),
 });
-
 const CONTEXT_MENU_TIERS = Object.freeze({
   MICRO: {
     duration: 0.24,
@@ -16,11 +11,9 @@ const CONTEXT_MENU_TIERS = Object.freeze({
     ease: CONTEXT_MENU_EASINGS.EMPHASIZED,
   },
 });
-
 function toGpuTransform({ x = 0, y = 0, scale = 1 } = {}) {
   return `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
 }
-
 export const CONTEXT_MENU_MICRO_SPRING = Object.freeze({
   type: "spring",
   stiffness: 520,
@@ -28,11 +21,15 @@ export const CONTEXT_MENU_MICRO_SPRING = Object.freeze({
   mass: 0.28,
 });
 export const CONTEXT_MENU_ITEM_TAP = Object.freeze({
-  transform: toGpuTransform({ scale: 0.97 }),
+  transform: toGpuTransform({
+    scale: 0.97,
+  }),
 });
-
 export const menuContentVariants = Object.freeze({
-  hidden: { opacity: 0, filter: "blur(4px)" },
+  hidden: {
+    opacity: 0,
+    filter: "blur(4px)",
+  },
   visible: {
     opacity: 1,
     filter: "blur(0px)",
@@ -45,10 +42,12 @@ export const menuContentVariants = Object.freeze({
   exit: {
     opacity: 0,
     filter: "blur(3px)",
-    transition: { duration: 0.18, ease: CONTEXT_MENU_EASINGS.EXIT },
+    transition: {
+      duration: 0.18,
+      ease: CONTEXT_MENU_EASINGS.EXIT,
+    },
   },
 });
-
 export const menuItemVariants = Object.freeze({
   hidden: {
     opacity: 0,
@@ -70,16 +69,23 @@ export const menuItemVariants = Object.freeze({
   }),
   exit: {
     opacity: 0,
-    transform: toGpuTransform({ y: -3, scale: 0.994 }),
+    transform: toGpuTransform({
+      y: -3,
+      scale: 0.994,
+    }),
     filter: "blur(3px)",
-    transition: { duration: 0.18, ease: CONTEXT_MENU_EASINGS.EXIT },
+    transition: {
+      duration: 0.18,
+      ease: CONTEXT_MENU_EASINGS.EXIT,
+    },
   },
 });
-
 export const menuPopVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: toGpuTransform({ scale: 0.96 }),
+    transform: toGpuTransform({
+      scale: 0.96,
+    }),
     transformOrigin: "top left",
     filter: "blur(5px)",
   },
@@ -95,13 +101,17 @@ export const menuPopVariants = Object.freeze({
   },
   exit: {
     opacity: 0,
-    transform: toGpuTransform({ scale: 0.98 }),
+    transform: toGpuTransform({
+      scale: 0.98,
+    }),
     transformOrigin: "top left",
     filter: "blur(4px)",
-    transition: { duration: 0.18, ease: CONTEXT_MENU_EASINGS.EXIT },
+    transition: {
+      duration: 0.18,
+      ease: CONTEXT_MENU_EASINGS.EXIT,
+    },
   },
 });
-
 export const CONTEXT_MENU_POP_VARIANTS = menuPopVariants;
 export const CONTEXT_MENU_CONTENT_VARIANTS = menuContentVariants;
 export const CONTEXT_MENU_ITEM_VARIANTS = menuItemVariants;

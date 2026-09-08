@@ -1,5 +1,5 @@
 {
-  "name": "passwordless-saas-template",
+  "name": "base_framework",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node ./scripts/run-tests.mjs",
-    "modules:check": "node ./scripts/check-modules.mjs",
-    "modules:snapshot": "node ./scripts/check-modules.mjs --write-snapshot",
+    "test": "node --test 'tests/**/*.test.js'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

@@ -5,7 +5,7 @@ import {
 } from "@/infrastructure/supabase/server";
 import {
   getCurrentAccount,
-  updateAccountProfile,
+  updateAccount,
 } from "@/modules/account/server";
 import {
   assertSameOrigin,
@@ -46,7 +46,7 @@ export async function PATCH(request) {
     const client = await createServerSupabaseClient();
     const payload = await request.json();
     return NextResponse.json(
-      await updateAccountProfile({ client, input: payload, userId: user.id }),
+      await updateAccount({ client, input: payload, userId: user.id }),
     );
   } catch (error) {
     return failure(error, 400);

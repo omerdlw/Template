@@ -9,18 +9,18 @@ import {
 import {
   deactivateCurrentAccount,
   reactivateCurrentAccount,
-  updateAccountProfile,
+  updateAccount,
 } from "@/modules/account/server";
 import {
   requireRecentAuthentication,
   requireUser,
 } from "@/modules/auth/server";
 
-export async function updateProfileAction(_previousState, formData) {
+export async function updateAccountAction(_previousState, formData) {
   try {
     const user = await requireUser();
     const client = await createServerSupabaseClient();
-    await updateAccountProfile({
+    await updateAccount({
       client,
       input: {
         avatarUrl: formData.get("avatarUrl"),
@@ -34,15 +34,16 @@ export async function updateProfileAction(_previousState, formData) {
     });
     revalidatePath("/account", "page");
     revalidatePath("/account/[username]", "page");
-    revalidatePath("/account/profile", "page");
     return { error: null, success: true };
   } catch (error) {
     return {
-      error: error.message || "Profile could not be updated",
+      error: error.message || "Account could not be updated",
       success: false,
     };
   }
 }
+
+export const updateProfileAction = updateAccountAction;
 
 export async function deactivateAccountAction() {
   const user = await requireRecentAuthentication();
@@ -58,7 +59,6 @@ export async function reactivateAccountAction() {
   await reactivateCurrentAccount({ client, userId: user.id });
   revalidatePath("/account", "page");
   revalidatePath("/account/[username]", "page");
-  revalidatePath("/account/profile", "page");
 }
 
 export async function deleteAccountAction(formData) {

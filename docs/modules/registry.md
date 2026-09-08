@@ -6,17 +6,16 @@
 
 Registry type/key/source metadata'sını, validation'ı, priority çözümünü ve registration cleanup'ını yönetir. Payload'ın domain anlamını veya tüketen modülün görünümünü yönetmez.
 
-| Dosya             | Sorumluluk                                                      |
-| ----------------- | --------------------------------------------------------------- |
-| `contract.js`     | Runtime bağımsız public type, key ve validation sözleşmesi      |
-| `contracts.js`    | Type, key, source, lifecycle ve validation sözleşmesi           |
-| `operations.js`   | Register, unregister, batch ve effective value çözümü           |
-| `provider.js`     | External store, provider, action ve selector hook'ları          |
-| `adapters.js`     | Feature registration hook'ları, bootstrap ve route adapter'ları |
-| `runtime.js`      | Scope, transaction, diagnostics ve inspector runtime'ı          |
-| `extensions.js`   | Capability, command, resource, policy ve persistence altyapısı  |
-| `experimental.js` | Kararlılık garantisi olmayan extension giriş noktası            |
-| `index.js`        | Stable client facade                                            |
+| Dosya           | Sorumluluk                                                      |
+| --------------- | --------------------------------------------------------------- |
+| `index.js`      | Tek public facade                                               |
+| `schema.js`     | Type, key, source, lifecycle ve validation kuralları            |
+| `operations.js` | Register, unregister, batch ve effective value çözümü           |
+| `provider.js`   | External store, provider, action ve selector hook'ları          |
+| `adapters.js`   | Feature registration hook'ları, bootstrap ve route adapter'ları |
+| `hooks.js`      | Type-scoped okuma/kayıt hook'ları ve config stabilization       |
+| `handlers.js`   | Descriptor uygulama, batch ve source/instance cleanup lifecycle |
+| `runtime.js`    | Scope, transaction, diagnostics ve inspector runtime'ı          |
 
 ## Kurulum
 
@@ -34,25 +33,22 @@ Registry'yi onu tüketen provider'ların üstünde bir kez kurun. Değişmeyen b
 
 ## API seçimi
 
-| İhtiyaç                          | API                                                                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Bir sayfanın birden çok tanımı   | `usePageRegistry`                                                                                                                                            |
-| Tek feature tanımı               | `useNavRegistration`, `useBackgroundRegistration`, `useControlsRegistration`, `useLoadingRegistration`, `useContextMenuRegistration`, `useModalRegistration` |
-| Store action veya batch          | `useRegistryActions`                                                                                                                                         |
-| Bir effective value okumak       | `useRegistryValue` veya typed read hook                                                                                                                      |
-| Bir type'ın kayıtlarını okumak   | `useRegistryEntries`                                                                                                                                         |
-| Özel selector                    | `useRegistrySelector`                                                                                                                                        |
-| Store'u React dışında test etmek | `createRegistryStore`                                                                                                                                        |
+| İhtiyaç                          | API                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bir sayfanın birden çok tanımı   | `usePageRegistry`                                                                                                                                                                     |
+| Tek feature tanımı               | `useNavRegistration`, `useNavHudRegistration`, `useBackgroundRegistration`, `useControlsRegistration`, `useLoadingRegistration`, `useContextMenuRegistration`, `useModalRegistration` |
+| Store action veya batch          | `useRegistryActions`                                                                                                                                                                  |
+| Bir effective value okumak       | `useRegistryValue` veya typed read hook                                                                                                                                               |
+| Bir type'ın kayıtlarını okumak   | `useRegistryEntries`                                                                                                                                                                  |
+| Özel selector                    | `useRegistrySelector`                                                                                                                                                                 |
+| Store'u React dışında test etmek | `createRegistryStore`                                                                                                                                                                 |
 
 Raw `register` çağrısını feature bileşenlerine yaymak yerine typed hook veya `usePageRegistry` kullanın.
 
+Nav HUD kaydı producerın verdiği JSXi doğrudan Nav kartına taşır. Aynı anda etkin kayıtlar arasında en yüksek Registry prioritysi görünür; lifecycle ve cleanup yine Registry tarafından yürütülür.
+
 React dışı platform mutation'ları için `store.transaction` kullanın; bu API
 tek commit üretir ve `traceId` ile diagnostics akışını ilişkilendirir.
-
-Capability, command, resource, policy ve persistence sistemleri Registry'nin
-platform altyapısının parçalarıdır; ayrı `src/modules/*` modülleri değildir.
-Yeni kullanımda bu sistemlere açıkça `@/modules/registry/experimental` üzerinden erişilir. Root
-facade'daki aynı export'lar mevcut tüketicileri kırmamak için geçici uyumluluk yüzeyidir.
 
 ## Kullanım
 
@@ -105,10 +101,9 @@ function EditorModalRegistration() {
 ## Doğrulama
 
 ```bash
-npm run modules:check
 npm test
-npx prettier --check src/modules/registry docs/modules/registry.md
 npx eslint src/modules/registry
+npx prettier --check src/modules/registry docs/modules/registry.md
 ```
 
 Registry mutation sonucu dönen handle'ın `status` ve `reason` alanları reject ile

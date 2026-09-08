@@ -6,7 +6,7 @@
 
 Background kaydını seçmek, URL üretmek ve feature state'i domain'e aittir. Modül image/video görünümü, overlay, gradient, noise, video playback ve cleanup'ı yönetir.
 
-`model.js` state normalizasyonu ile saf görsel/motion hesaplarını, `runtime.js` context ve video element lifecycle'ını, `index.js` facade ile `BackgroundOverlay`i içerir.
+`constants.js` varsayılan değerleri ve class haritalarını, `utils.js` state normalizasyonu ve saf görsel hesapları, `motion.js` animasyon kurallarını, `provider.js` context ve video element lifecycle'ını, `index.js` facade ile `BackgroundOverlay`i içerir.
 
 ## Kurulum
 
@@ -88,7 +88,7 @@ Aynı sayfada birden fazla `BackgroundOverlay` mount etmeyin. Video DOM element'
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/background/*.js modules/docs/background.md
-npx eslint modules/background/*.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/background
+npx prettier --check src/modules/background docs/modules/background.md
 ```

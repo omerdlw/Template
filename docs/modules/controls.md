@@ -4,7 +4,7 @@
 
 ## Sınır
 
-Controls Nav state'i, route davranışı veya mobile trigger üretmez. `index.js` renderer ile `useControlsLayout` hook'unu, `layout.js` ise React'ten bağımsız pair ve geometri hesaplarını içerir.
+Controls Nav state'i, route davranışı veya mobile trigger üretmez. `index.js` renderer ile `useControlsLayout` hook'unu, `constants.js` yerleşim sabitlerini, `utils.js` ise React'ten bağımsız pair ve geometri hesaplarını içerir.
 
 ## Kurulum
 
@@ -73,7 +73,7 @@ Tekil left veya right kayıtları görünmez. Bu modül için ekstra wrapper, pr
 ## Doğrulama
 
 ```bash
-npx prettier --check modules/controls/*.js modules/docs/controls.md
-npx eslint modules/controls tests/modules.test.js
-node --import ./scripts/register-alias.mjs --test tests/modules.test.js
+npm test
+npx eslint src/modules/controls
+npx prettier --check src/modules/controls docs/modules/controls.md
 ```

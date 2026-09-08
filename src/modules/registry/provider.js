@@ -10,7 +10,6 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-
 import {
   applyOperation,
   createInitialRegistries,
@@ -30,27 +29,32 @@ import {
   validateRegistryKey,
   validateRegistryMetadata,
   validateRegistryValue,
-} from "./contracts";
+} from "./schema";
 import { createRegistryTransaction, recordRegistryDiagnostic } from "./runtime";
-
 const NOOP = () => {};
 const IDENTITY_SELECTOR = (value) => value;
 const EMPTY_ENTRIES = Object.freeze({});
-
 function createNoopHandle(status = "rejected", reason = "unknown") {
   const handle = () => {};
   handle.dispose = handle;
   handle.update = () => handle;
   Object.defineProperties(handle, {
-    active: { enumerable: true, value: false },
-    reason: { enumerable: true, value: reason },
-    status: { enumerable: true, value: status },
+    active: {
+      enumerable: true,
+      value: false,
+    },
+    reason: {
+      enumerable: true,
+      value: reason,
+    },
+    status: {
+      enumerable: true,
+      value: status,
+    },
   });
   return handle;
 }
-
 const NOOP_HANDLE = createNoopHandle();
-
 function isNoopHandle(handle) {
   return (
     handle === NOOP_HANDLE ||
@@ -58,19 +62,16 @@ function isNoopHandle(handle) {
     handle?.status === "ignored"
   );
 }
-
 function cloneRegistryValue(value, seen = new WeakMap()) {
   if (value === null || typeof value !== "object" || isValidElement(value)) {
     return value;
   }
-
   const prototype = Object.getPrototypeOf(value);
   const isPlainObject =
     !Array.isArray(value) &&
     (prototype === Object.prototype || prototype === null);
   if (!Array.isArray(value) && !isPlainObject) return value;
   if (seen.has(value)) return seen.get(value);
-
   const clone = Array.isArray(value) ? [] : {};
   seen.set(value, clone);
   Object.keys(value).forEach((key) => {
@@ -78,25 +79,25 @@ function cloneRegistryValue(value, seen = new WeakMap()) {
   });
   return Object.freeze(clone);
 }
-
 const DEFAULT_REGISTRY_ACTIONS = Object.freeze({
   batch: (fn) =>
     typeof fn === "function"
-      ? fn({ register: () => NOOP_HANDLE, unregister: NOOP })
+      ? fn({
+          register: () => NOOP_HANDLE,
+          unregister: NOOP,
+        })
       : 0,
   register: () => NOOP_HANDLE,
-  transaction: () => ({ status: "unavailable" }),
+  transaction: () => ({
+    status: "unavailable",
+  }),
   unregister: NOOP,
 });
-
 const DEFAULT_REGISTRY_SUBSCRIPTION = Object.freeze({
   getEntriesSnapshot: () => EMPTY_ENTRIES,
   getSnapshot: () => null,
   subscribe: () => NOOP,
 });
-
-// ── Pure external store ──────────────────────────────────────────────────────
-
 function useLazyRef(factory) {
   const ref = useRef(null);
   if (ref.current === null) {
@@ -104,21 +105,17 @@ function useLazyRef(factory) {
   }
   return ref;
 }
-
 function normalizeInitialEntries(entries) {
   return (Array.isArray(entries) ? entries : []).filter(
     (entry) => entry?.type && entry?.items && typeof entry.items === "object",
   );
 }
-
 function createInitialState(entries) {
   const normalizedEntries = normalizeInitialEntries(entries);
   if (normalizedEntries.length === 0) return createInitialRegistries();
-
   const timestamp = Date.now();
   let sequence = 0;
   let state = createInitialRegistries();
-
   normalizedEntries.forEach((entry) => {
     const source = entry.source || REGISTRY_SOURCES.STATIC;
     const options = {
@@ -126,7 +123,6 @@ function createInitialState(entries) {
       instanceId:
         entry.instanceId || entry.options?.instanceId || "registry-initial",
     };
-
     Object.entries(entry.items).forEach(([key, value]) => {
       const validation = validateRegistration(
         entry.type,
@@ -150,10 +146,8 @@ function createInitialState(entries) {
       }
     });
   });
-
   return state;
 }
-
 function notifyListeners(listeners) {
   listeners?.forEach((listener) => {
     try {
@@ -167,7 +161,6 @@ function notifyListeners(listeners) {
     }
   });
 }
-
 function getOrCreateKeyListeners(listenersByType, type, key) {
   const listeners = listenersByType.get(type) || new Map();
   const keyListeners = listeners.get(key) || new Set();
@@ -175,13 +168,11 @@ function getOrCreateKeyListeners(listenersByType, type, key) {
   listenersByType.set(type, listeners);
   return keyListeners;
 }
-
 function resolveRegistrationOptions(sourceOrOptions, optionsArg) {
   if (sourceOrOptions && typeof sourceOrOptions === "object")
     return sourceOrOptions;
   return optionsArg && typeof optionsArg === "object" ? optionsArg : {};
 }
-
 function validateRegistration(type, key, value, sourceOrOptions, optionsArg) {
   const options = resolveRegistrationOptions(sourceOrOptions, optionsArg);
   const metadataValidation = validateRegistryMetadata(options);
@@ -200,7 +191,6 @@ function validateRegistration(type, key, value, sourceOrOptions, optionsArg) {
     REGISTRY_SOURCES,
     source.toUpperCase(),
   );
-
   if (!hasKnownSourcePriority && !hasExplicitPriority) {
     recordRegistryDiagnostic({
       action: "validation-warning",
@@ -210,7 +200,6 @@ function validateRegistration(type, key, value, sourceOrOptions, optionsArg) {
       type,
     });
   }
-
   if (!metadataValidation.valid) {
     recordRegistryDiagnostic({
       action: isStrict ? "reject" : "validation-warning",
@@ -228,10 +217,11 @@ function validateRegistration(type, key, value, sourceOrOptions, optionsArg) {
       };
     }
   }
-
   const validation = validateRegistryValue(type, key, value);
-  if (validation.valid) return { valid: true };
-
+  if (validation.valid)
+    return {
+      valid: true,
+    };
   recordRegistryDiagnostic({
     action: isStrict ? "reject" : "validation-warning",
     issues: validation.issues,
@@ -246,10 +236,8 @@ function validateRegistration(type, key, value, sourceOrOptions, optionsArg) {
     valid: !isStrict,
   };
 }
-
 function createRegistrationHandle(store, operation) {
   let disposed = false;
-
   const dispose = (reason = "manual") => {
     if (disposed) return false;
     disposed = true;
@@ -260,7 +248,6 @@ function createRegistrationHandle(store, operation) {
   handle.dispose = dispose;
   handle.update = (value, options = {}) => {
     if (disposed || !store.isCurrent(operation)) return NOOP_HANDLE;
-
     const nextHandle = store.register(
       operation.type,
       operation.key,
@@ -270,12 +257,19 @@ function createRegistrationHandle(store, operation) {
         ...(options && typeof options === "object" ? options : {}),
         instanceId: operation.instanceId,
         priority: operation.record.priority,
-        ...(operation.scope ? { scope: operation.scope } : {}),
-        ...(operation.validation ? { validation: operation.validation } : {}),
+        ...(operation.scope
+          ? {
+              scope: operation.scope,
+            }
+          : {}),
+        ...(operation.validation
+          ? {
+              validation: operation.validation,
+            }
+          : {}),
       },
     );
     if (isNoopHandle(nextHandle)) return handle;
-
     disposed = true;
     return nextHandle;
   };
@@ -284,10 +278,22 @@ function createRegistrationHandle(store, operation) {
       enumerable: true,
       get: () => !disposed && store.isCurrent(operation),
     },
-    instanceId: { enumerable: true, value: operation.instanceId },
-    key: { enumerable: true, value: operation.key },
-    priority: { enumerable: true, value: operation.record.priority },
-    source: { enumerable: true, value: operation.source },
+    instanceId: {
+      enumerable: true,
+      value: operation.instanceId,
+    },
+    key: {
+      enumerable: true,
+      value: operation.key,
+    },
+    priority: {
+      enumerable: true,
+      value: operation.record.priority,
+    },
+    source: {
+      enumerable: true,
+      value: operation.source,
+    },
     status: {
       enumerable: true,
       get: () =>
@@ -297,18 +303,21 @@ function createRegistrationHandle(store, operation) {
             ? "active"
             : "superseded",
     },
-    type: { enumerable: true, value: operation.type },
-    updatedAt: { enumerable: true, value: operation.record.updatedAt },
-    validation: { enumerable: true, value: operation.validation || "warn" },
+    type: {
+      enumerable: true,
+      value: operation.type,
+    },
+    updatedAt: {
+      enumerable: true,
+      value: operation.record.updatedAt,
+    },
+    validation: {
+      enumerable: true,
+      value: operation.validation || "warn",
+    },
   });
   return handle;
 }
-
-/**
- * The Provider is a React adapter over this small external-store seam.
- * Keeping mutation and snapshot logic here makes behavior testable without a
- * DOM and keeps every consumer on the same immutable state machine.
- */
 export function createRegistryStore(initialEntries = []) {
   let registries = createInitialState(initialEntries);
   let sequence = normalizeInitialEntries(initialEntries).reduce(
@@ -319,7 +328,6 @@ export function createRegistryStore(initialEntries = []) {
   const entrySnapshots = new Map();
   const valueSnapshots = new Map();
   const resolveCachedValue = createResolverCache();
-
   const subscribe = (type, key, listener) => {
     const keyListeners = getOrCreateKeyListeners(
       listenersByType,
@@ -327,7 +335,6 @@ export function createRegistryStore(initialEntries = []) {
       key ?? null,
     );
     keyListeners.add(listener);
-
     return () => {
       keyListeners.delete(listener);
       if (keyListeners.size > 0) return;
@@ -336,12 +343,10 @@ export function createRegistryStore(initialEntries = []) {
       if (listeners?.size === 0) listenersByType.delete(type);
     };
   };
-
   const commit = (nextState, operations = []) => {
     if (registries === nextState) return;
     const previousState = registries;
     registries = nextState;
-
     const changedKeysByType = new Map();
     operations.forEach((operation) => {
       if (!isValidRegistryTarget(operation?.type, operation?.key)) return;
@@ -349,24 +354,20 @@ export function createRegistryStore(initialEntries = []) {
       keys.add(operation.key);
       changedKeysByType.set(operation.type, keys);
     });
-
     changedKeysByType.forEach((changedKeys, type) => {
       const previousRegistry = previousState[type] || {};
       const nextRegistry = nextState[type] || {};
       let typeChanged = false;
-
       changedKeys.forEach((key) => {
         if (previousRegistry[key] === nextRegistry[key]) return;
         typeChanged = true;
         notifyListeners(listenersByType.get(type)?.get(key));
       });
-
       if (typeChanged) {
         notifyListeners(listenersByType.get(type)?.get(null));
       }
     });
   };
-
   const isCurrent = (operation) => {
     const entry = registries[operation.type]?.[operation.key];
     const recordKey = createRecordKey(
@@ -376,10 +377,8 @@ export function createRegistryStore(initialEntries = []) {
     );
     return entry?.[recordKey] === operation.record;
   };
-
   const dispose = (operation, reason = "manual") => {
     if (!isCurrent(operation)) return false;
-
     const unregisterOperation = createUnregisterOperation(
       operation.type,
       operation.key,
@@ -390,7 +389,6 @@ export function createRegistryStore(initialEntries = []) {
       },
     );
     if (!hasOperationEffect(registries, unregisterOperation)) return false;
-
     commit(applyOperation(registries, unregisterOperation), [
       unregisterOperation,
     ]);
@@ -404,7 +402,6 @@ export function createRegistryStore(initialEntries = []) {
     });
     return true;
   };
-
   const register = (
     type,
     key,
@@ -432,7 +429,6 @@ export function createRegistryStore(initialEntries = []) {
     if (!validation.valid) {
       return createNoopHandle("rejected", validation.reason);
     }
-
     const timestamp = Date.now();
     const operation = createRegisterOperation(
       type,
@@ -443,7 +439,6 @@ export function createRegistryStore(initialEntries = []) {
       timestamp,
       ++sequence,
     );
-
     if (!hasOperationEffect(registries, operation)) {
       recordRegistryDiagnostic({
         action: "ignore",
@@ -455,7 +450,6 @@ export function createRegistryStore(initialEntries = []) {
       });
       return createNoopHandle("ignored", "unchanged");
     }
-
     commit(applyOperation(registries, operation), [operation]);
     recordRegistryDiagnostic({
       action: "register",
@@ -467,7 +461,6 @@ export function createRegistryStore(initialEntries = []) {
     });
     return createRegistrationHandle(store, operation);
   };
-
   const unregister = (type, key, sourceOrOptions = DEFAULT_SOURCE) => {
     if (!isValidRegistryTarget(type, key)) {
       recordRegistryDiagnostic({
@@ -479,7 +472,6 @@ export function createRegistryStore(initialEntries = []) {
       });
       return;
     }
-
     const operation = createUnregisterOperation(type, key, sourceOrOptions);
     if (!hasOperationEffect(registries, operation)) {
       recordRegistryDiagnostic({
@@ -492,7 +484,6 @@ export function createRegistryStore(initialEntries = []) {
       });
       return;
     }
-
     commit(applyOperation(registries, operation), [operation]);
     recordRegistryDiagnostic({
       action: "unregister",
@@ -502,10 +493,8 @@ export function createRegistryStore(initialEntries = []) {
       type,
     });
   };
-
   const batch = (executor) => {
     if (typeof executor !== "function") return 0;
-
     const timestamp = Date.now();
     const operations = [];
     const queue = {
@@ -536,7 +525,6 @@ export function createRegistryStore(initialEntries = []) {
         if (!validation.valid) {
           return createNoopHandle("rejected", validation.reason);
         }
-
         const operation = createRegisterOperation(
           type,
           key,
@@ -563,16 +551,13 @@ export function createRegistryStore(initialEntries = []) {
         operations.push(createUnregisterOperation(type, key, sourceOrOptions));
       },
     };
-
     executor(queue);
     if (operations.length === 0) return 0;
-
     const { effectiveOperations, nextState } = resolveEffectiveOperations(
       registries,
       operations,
     );
     if (effectiveOperations.length === 0) return 0;
-
     commit(nextState, effectiveOperations);
     effectiveOperations.forEach((operation) => {
       recordRegistryDiagnostic({
@@ -586,26 +571,25 @@ export function createRegistryStore(initialEntries = []) {
     });
     return effectiveOperations.length;
   };
-
   const getSnapshot = (type, key, scope = null) => {
     const entry = registries[type]?.[key];
     const snapshots = valueSnapshots.get(type) || new Map();
     const cacheKey = JSON.stringify([scope, key]);
     const cached = snapshots.get(cacheKey);
     if (cached && cached.entry === entry) return cached.value;
-
     const value = cloneRegistryValue(resolveCachedValue(type, entry, scope));
-    snapshots.set(cacheKey, { entry, value });
+    snapshots.set(cacheKey, {
+      entry,
+      value,
+    });
     valueSnapshots.set(type, snapshots);
     return value;
   };
-
   const getEntriesSnapshot = (type, scope = null) => {
     const typeRegistry = registries[type] || {};
     const cacheKey = JSON.stringify([type, scope]);
     const cached = entrySnapshots.get(cacheKey);
     if (cached?.typeRegistry === typeRegistry) return cached.value;
-
     const resolved = {};
     Object.keys(typeRegistry).forEach((key) => {
       const value = cloneRegistryValue(
@@ -613,10 +597,12 @@ export function createRegistryStore(initialEntries = []) {
       );
       if (value !== undefined) resolved[key] = value;
     });
-    entrySnapshots.set(cacheKey, { typeRegistry, value: resolved });
+    entrySnapshots.set(cacheKey, {
+      typeRegistry,
+      value: resolved,
+    });
     return Object.freeze(resolved);
   };
-
   const store = {
     batch,
     dispose,
@@ -629,15 +615,10 @@ export function createRegistryStore(initialEntries = []) {
       createRegistryTransaction(store, metadata).run(executor),
     unregister,
   };
-
   return store;
 }
-
-// ── React provider and selector hooks ────────────────────────────────────────
-
 const RegistryActionsContext = createContext(null);
 const RegistrySubscriptionContext = createContext(null);
-
 export function RegistryProvider({ children, initialEntries = [] }) {
   const storeRef = useLazyRef(() => createRegistryStore(initialEntries));
   const actionsValue = useMemo(
@@ -657,28 +638,28 @@ export function RegistryProvider({ children, initialEntries = [] }) {
     }),
     [storeRef],
   );
-
   return createElement(
     RegistryActionsContext.Provider,
-    { value: actionsValue },
+    {
+      value: actionsValue,
+    },
     createElement(
       RegistrySubscriptionContext.Provider,
-      { value: subscriptionValue },
+      {
+        value: subscriptionValue,
+      },
       children,
     ),
   );
 }
-
 export function useRegistryActions() {
   return useContext(RegistryActionsContext) ?? DEFAULT_REGISTRY_ACTIONS;
 }
-
 function useRegistrySubscription() {
   return (
     useContext(RegistrySubscriptionContext) ?? DEFAULT_REGISTRY_SUBSCRIPTION
   );
 }
-
 export function useRegistryValue(type, key) {
   const { getSnapshot, subscribe } = useRegistrySubscription();
   const subscribeToKey = useCallback(
@@ -689,10 +670,8 @@ export function useRegistryValue(type, key) {
     () => getSnapshot(type, key),
     [getSnapshot, key, type],
   );
-
   return useSyncExternalStore(subscribeToKey, getValue, getValue);
 }
-
 export function useRegistrySelector(
   type,
   key,
@@ -719,7 +698,6 @@ export function useRegistrySelector(
     ) {
       return previous.value;
     }
-
     const nextValue = resolvedSelector(snapshot);
     if (
       previous &&
@@ -727,10 +705,12 @@ export function useRegistrySelector(
       previous.isEqual === resolvedIsEqual &&
       resolvedIsEqual(previous.value, nextValue)
     ) {
-      selectionRef.current = { ...previous, snapshot };
+      selectionRef.current = {
+        ...previous,
+        snapshot,
+      };
       return previous.value;
     }
-
     selectionRef.current = {
       isEqual: resolvedIsEqual,
       selector: resolvedSelector,
@@ -739,10 +719,8 @@ export function useRegistrySelector(
     };
     return nextValue;
   }, [getSnapshot, key, resolvedIsEqual, resolvedSelector, type]);
-
   return useSyncExternalStore(subscribeToKey, getSelection, getSelection);
 }
-
 export function useRegistryEntries(type) {
   const { getEntriesSnapshot, subscribe } = useRegistrySubscription();
   const subscribeToType = useCallback(
@@ -753,6 +731,5 @@ export function useRegistryEntries(type) {
     () => getEntriesSnapshot(type),
     [getEntriesSnapshot, type],
   );
-
   return useSyncExternalStore(subscribeToType, getEntries, getEntries);
 }

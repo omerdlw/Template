@@ -10,8 +10,8 @@ export default async function AccountEntryPage() {
   if (!user) return null;
 
   const client = await createServerSupabaseClient();
-  const { profile } = await getCurrentAccount({ client, userId: user.id });
+  const { account } = await getCurrentAccount({ client, userId: user.id });
 
-  if (!profile?.username) redirect("/account/profile");
-  redirect(`/account/${encodeURIComponent(profile.username)}`);
+  if (!account?.username) redirect("/?reason=account-incomplete");
+  redirect(`/account/${encodeURIComponent(account.username)}`);
 }

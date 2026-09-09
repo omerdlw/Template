@@ -242,6 +242,7 @@ const NAV_CONFIG_FIELD_TYPES = Object.freeze({
   width: "number",
   path: "string",
   name: "string",
+  targetPath: "string",
 });
 const NAVIGATION_POLICY_FIELD_TYPES = Object.freeze({
   clearTransientState: "boolean",

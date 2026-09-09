@@ -129,7 +129,10 @@ function useNavCommands({ activeItem, contextCommands = [] } = {}) {
 }
 const NavCommand = memo(function NavCommand({ action }) {
   return (
-    <Tooltip className="px-2" text={action.tooltip}>
+    <Tooltip
+      className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-black shadow-lg shadow-black/60"
+      text={action.tooltip}
+    >
       <Button
         className="center relative size-8 cursor-pointer rounded-xl p-1 text-white/70 hover:bg-white/10 hover:text-white"
         onClick={(event) => {

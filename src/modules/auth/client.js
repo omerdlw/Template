@@ -67,6 +67,30 @@ export async function signInWithOAuth(client, { provider, redirectTo }) {
     "OAuth sign-in could not be started",
   );
 }
+export async function linkIdentity(client, { provider, redirectTo }) {
+  const targetProvider = provider === "x" ? "twitter" : provider;
+  const result = await client.auth.linkIdentity({
+    options: {
+      redirectTo,
+    },
+    provider: targetProvider,
+  });
+  if (result.error) throw result.error;
+  if (result.data?.url) {
+    window.location.assign(result.data.url);
+  }
+  return result.data;
+}
+export async function unlinkIdentity(client, identity) {
+  const result = await client.auth.unlinkIdentity(identity);
+  if (result.error) throw result.error;
+  return result.data;
+}
+export async function getUserIdentities(client) {
+  const result = await client.auth.getUserIdentities();
+  if (result.error) throw result.error;
+  return Array.isArray(result.data?.identities) ? result.data.identities : [];
+}
 export async function signInWithPasskey(client) {
   return unwrap(
     await client.auth.signInWithPasskey(),
@@ -112,13 +136,39 @@ export async function listMfaFactors(client) {
   return [...(data.totp || []), ...(data.phone || [])];
 }
 export async function enrollMfa(client, friendlyName = "Authenticator") {
-  return unwrap(
-    await client.auth.mfa.enroll({
+  const cleanupStaleFactors = async () => {
+    try {
+      const response = await client.auth.mfa.listFactors();
+      const allFactors = response?.data?.all || [];
+      const staleFactors = allFactors.filter(
+        (factor) =>
+          factor.status === "unverified" &&
+          (factor.friendly_name === friendlyName || factor.factor_type === "totp"),
+      );
+      for (const factor of staleFactors) {
+        await client.auth.mfa.unenroll({ factorId: factor.id }).catch(() => {});
+      }
+    } catch {
+      // Non-fatal cleanup attempt
+    }
+  };
+
+  await cleanupStaleFactors();
+
+  let result = await client.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName,
+  });
+
+  if (result.error && result.error.message?.includes("already exists")) {
+    await cleanupStaleFactors();
+    result = await client.auth.mfa.enroll({
       factorType: "totp",
       friendlyName,
-    }),
-    "MFA enrollment failed",
-  );
+    });
+  }
+
+  return unwrap(result, "MFA enrollment failed");
 }
 export async function verifyMfa(client, { code, factorId }) {
   return unwrap(

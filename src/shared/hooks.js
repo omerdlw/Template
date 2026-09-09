@@ -9,9 +9,6 @@ import {
 } from "react";
 import { isBrowser } from "./utils";
 
-/**
- * Executes a callback when a pointer down event occurs outside the specified element.
- */
 export function useClickOutside(ref, callback) {
   const handlePointer = useCallback(
     (event) => {
@@ -28,14 +25,8 @@ export function useClickOutside(ref, callback) {
   }, [handlePointer]);
 }
 
-/**
- * Resolves to useLayoutEffect on the client and useEffect on the server to prevent SSR warnings.
- */
 export const useIsomorphicLayoutEffect = isBrowser ? useLayoutEffect : useEffect;
 
-/**
- * Returns a debounced version of a rapidly changing value.
- */
 export function useDebounce(value, delay = 300) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -49,9 +40,6 @@ export function useDebounce(value, delay = 300) {
 
 const emptySubscribe = () => () => {};
 
-/**
- * Returns true once the component has mounted on the client.
- */
 export function useMounted() {
   return useSyncExternalStore(
     emptySubscribe,

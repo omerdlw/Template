@@ -73,7 +73,51 @@ export async function updateAccount({ client, input, userId }) {
     client,
     userId,
   });
-  const patch = normalizeAccountPatch(input);
+
+  const { data: current, error: fetchError } = await client
+    .from("accounts")
+    .select("username, display_name, avatar_url, banner_url, bio, is_private")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const mergedInput = {
+    avatarUrl:
+      input?.avatarUrl !== undefined
+        ? input.avatarUrl
+        : input?.avatar_url !== undefined
+          ? input.avatar_url
+          : current?.avatar_url,
+    bannerUrl:
+      input?.bannerUrl !== undefined
+        ? input.bannerUrl
+        : input?.banner_url !== undefined
+          ? input.banner_url
+          : current?.banner_url,
+    bio:
+      input?.bio !== undefined
+        ? input.bio
+        : current?.bio,
+    displayName:
+      input?.displayName !== undefined
+        ? input.displayName
+        : input?.display_name !== undefined
+          ? input.display_name
+          : current?.display_name,
+    isPrivate:
+      input?.isPrivate !== undefined
+        ? input.isPrivate
+        : input?.is_private !== undefined
+          ? input.is_private
+          : current?.is_private,
+    username:
+      input?.username !== undefined
+        ? input.username
+        : current?.username,
+  };
+
+  const patch = normalizeAccountPatch(mergedInput);
   const [{ data, error }, { data: emailRow }] = await Promise.all([
     client.rpc("update_account", {
       p_avatar_url: patch.avatarUrl,

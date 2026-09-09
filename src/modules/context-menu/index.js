@@ -146,7 +146,7 @@ function ContextMenuItem({
     item.danger && classNames.itemDanger,
   );
   const itemIconClassName = joinClassNames(
-    "shrink-0 text-white/50 transition-colors duration-200 ease-in-out group-hover:text-white/70",
+    "shrink-0 text-white/50 transition-all duration-300 ease-in-out group-hover:text-white/70",
     item.danger && "text-error/80 group-hover:text-error",
     classNames.itemIcon,
     item.itemIconClassName,

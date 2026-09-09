@@ -45,8 +45,7 @@ const Tooltip = forwardRef(
             sideOffset={sideOffset}
             collisionPadding={collisionPadding}
             className={cn(
-              "tooltip-content pointer-events-none z-(--z-tooltip) rounded-full font-medium select-none",
-              "bg-white px-2.5 py-1 text-xs font-semibold text-black shadow-lg shadow-black/60",
+              "tooltip-content pointer-events-none select-none z-(--z-tooltip)",
               classes.content,
               classes.root,
             )}
@@ -58,7 +57,7 @@ const Tooltip = forwardRef(
             {text}
             {classes.arrow && (
               <TooltipPrimitive.Arrow
-                className={cn("fill-white", classes.arrow)}
+                className={classes.arrow}
               />
             )}
           </TooltipPrimitive.Content>

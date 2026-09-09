@@ -4,6 +4,11 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 const eslintConfig = defineConfig([
   ...nextVitals,
   {
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
+  {
     files: ["src/modules/**/*.{js,jsx}"],
     rules: {
       "no-restricted-imports": [
@@ -32,8 +37,6 @@ const eslintConfig = defineConfig([
       "src/ui/feedback/fullscreen-state.js",
     ],
     rules: {
-      // These effects synchronize portal, registry, viewport, and navigation
-      // lifecycle boundaries. Keep the exception limited to their current files.
       "react-hooks/set-state-in-effect": "off",
     },
   },
@@ -45,34 +48,28 @@ const eslintConfig = defineConfig([
       "src/modules/registry/{hooks,provider}.js",
     ],
     rules: {
-      // These files implement external stores and measured state through refs.
       "react-hooks/refs": "off",
     },
   },
   {
     files: ["src/modules/nav/{status,surface}.js"],
     rules: {
-      // The callbacks intentionally observe mutable lifecycle snapshots.
       "react-hooks/exhaustive-deps": "off",
     },
   },
   {
     files: ["src/modules/nav/surface.js"],
     rules: {
-      // Performance timestamps are captured while constructing transition state.
       "react-hooks/purity": "off",
     },
   },
   {
     files: ["src/modules/modal/index.js"],
     rules: {
-      // Modal component types are resolved dynamically from the registry.
       "react-hooks/static-components": "off",
     },
   },
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

@@ -26,9 +26,7 @@ export async function createServerSupabaseClient() {
           cookiesToSet.forEach(({ name, options, value }) => {
             cookieStore.set(name, value, options);
           });
-        } catch {
-          // Server Components cannot write cookies. src/proxy.js owns refresh writes.
-        }
+        } catch {}
       },
     },
   });

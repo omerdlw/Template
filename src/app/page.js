@@ -1,8 +1,8 @@
-export default function Page() {
-  return (
-    <>
-      <div className="h-screen">Template</div>
-      <div className="h-screen">Template</div>
-    </>
-  );
+import { useBackgroundRegistration } from "@/modules/registry";
+import { HomeClient } from "./client";
+
+export default function HomePage() {
+
+
+  return <HomeClient />;
 }

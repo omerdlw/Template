@@ -21,7 +21,7 @@ function failure(error, fallbackStatus = 500) {
     {
       error: isAuthenticationFailure
         ? "Authentication required"
-        : "Account request failed",
+        : error?.message || "Account request failed",
     },
     { status },
   );

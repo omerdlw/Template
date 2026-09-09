@@ -14,12 +14,12 @@ import {
 } from "@/modules/auth";
 import {
   NAV_FADE_TRANSITION,
+  NavSurfaceAction,
   NavSurfaceHeaderButton,
   textCrossfadeVariants,
-  useSurfaceHeader,
 } from "@/modules/nav";
 import { useToast } from "@/modules/notification";
-import { Button, Input } from "@/ui/primitives";
+import { Input } from "@/ui/primitives";
 import { cn } from "@/shared/utils";
 
 const OTP_LENGTH = 6;
@@ -28,8 +28,6 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export function createVerificationSurfaceEntry(data = {}, config = {}) {
   return {
     component: VerificationSurface,
-    description: "Enter the six-digit code sent to your email",
-    icon: "solar:shield-keyhole-bold",
     props: { data },
     title: "Verify email",
     ...config,
@@ -112,7 +110,6 @@ function getAccountPath(username, fallback = "/account") {
 export function VerificationSurface({ close, data = {} }) {
   const auth = useAuth();
   const toast = useToast();
-  const setHeader = useSurfaceHeader();
   const inputRef = useRef(null);
   const submitInFlight = useRef(false);
   const lastSubmittedCode = useRef("");
@@ -220,9 +217,6 @@ export function VerificationSurface({ close, data = {} }) {
         close?.({ success: true });
         window.location.replace(destination);
       } catch (error) {
-        // The OTP may already be consumed even when account completion fails.
-        // Keep that failure distinct from an invalid code rather than prompting
-        // the user to submit the same code again.
         if (emailVerified && mode === "sign-up") {
           toast.error(
             error.message ||
@@ -280,30 +274,11 @@ export function VerificationSurface({ close, data = {} }) {
   );
 
   useEffect(() => {
-    setHeader?.({
-      headerAction: (
-        <NavSurfaceHeaderButton
-          disabled={isBusy || !canResend}
-          onClick={() => void sendCode()}
-        >
-          {isResending
-            ? "Sending"
-            : canResend
-              ? "Resend"
-              : `Resend in ${resendRemainingSeconds}s`}
-        </NavSurfaceHeaderButton>
-      ),
-    });
-  }, [
-    canResend,
-    email,
-    isBusy,
-    isResending,
-    mode,
-    resendRemainingSeconds,
-    sendCode,
-    setHeader,
-  ]);
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus?.();
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(
     () => () => {
@@ -323,34 +298,41 @@ export function VerificationSurface({ close, data = {} }) {
   }
 
   return (
-    <motion.form
-      aria-busy={isBusy}
-      className="flex flex-col gap-2.5"
-      initial="hidden"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void completeVerification(code);
-      }}
-      transition={NAV_FADE_TRANSITION}
-      animate="visible"
-      variants={textCrossfadeVariants}
-    >
-      <OtpBoxes
-        code={code}
-        disabled={isBusy}
-        hasError={hasCodeError}
-        inputRef={inputRef}
-        isFocused={isFocused}
-        onCodeChange={handleCodeChange}
-        setIsFocused={setIsFocused}
-      />
-      <Button
-        className="h-11 w-full justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
-        disabled={isBusy || code.length !== OTP_LENGTH}
-        type="submit"
+    <>
+      <NavSurfaceAction>
+        <NavSurfaceHeaderButton
+          disabled={isBusy || !canResend}
+          onClick={() => void sendCode()}
+        >
+          {isResending
+            ? "Sending..."
+            : canResend
+              ? "Resend"
+              : `${resendRemainingSeconds}s`}
+        </NavSurfaceHeaderButton>
+      </NavSurfaceAction>
+      <motion.form
+        aria-busy={isBusy}
+        className="flex flex-col gap-2.5"
+        initial="hidden"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void completeVerification(code);
+        }}
+        transition={NAV_FADE_TRANSITION}
+        animate="visible"
+        variants={textCrossfadeVariants}
       >
-        {isSubmitting ? "Verifying" : "Verify code"}
-      </Button>
-    </motion.form>
+        <OtpBoxes
+          code={code}
+          disabled={isBusy}
+          hasError={hasCodeError}
+          inputRef={inputRef}
+          isFocused={isFocused}
+          onCodeChange={handleCodeChange}
+          setIsFocused={setIsFocused}
+        />
+      </motion.form>
+    </>
   );
 }

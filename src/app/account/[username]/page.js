@@ -2,8 +2,7 @@ import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/infrastructure/supabase/server";
 import { getPublicAccount } from "@/modules/account/server";
 import { getOptionalUser } from "@/modules/auth/server";
-import { AccountLayout } from "@/domains/account";
-import { AccountFollowNavSync } from "@/domains/social";
+import { AccountClient } from "./client";
 
 export default async function AccountPage({ params }) {
   const { username } = await params;
@@ -47,22 +46,13 @@ export default async function AccountPage({ params }) {
   const followingCount = followingResult?.count ?? 0;
 
   return (
-    <>
-      {!isOwner && (
-        <AccountFollowNavSync
-          initialStatus={initialFollowStatus}
-          targetUserId={account.id}
-          targetUsername={account.username}
-        />
-      )}
-      <AccountLayout
-        account={account}
-        followersCount={followersCount}
-        followingCount={followingCount}
-        isFollower={isFollower}
-        isOwner={isOwner}
-      />
-    </>
+    <AccountClient
+      account={account}
+      followersCount={followersCount}
+      followingCount={followingCount}
+      initialFollowStatus={initialFollowStatus}
+      isFollower={isFollower}
+      isOwner={isOwner}
+    />
   );
 }
-

@@ -9,7 +9,6 @@ import {
   NavSurfaceExtension,
   navFadeVariants,
   navListItemVariants,
-  useSurfaceHeader,
 } from "@/modules/nav";
 import { useToast } from "@/modules/notification";
 import {
@@ -27,7 +26,7 @@ import {
   applyAvatarFallback,
   getUserAvatarFallbackUrl,
   getUserAvatarUrl,
-} from "@/domains/account";
+} from "@/shared";
 import AdaptiveImage from "@/ui/components/adaptive-image";
 import { Button, Icon } from "@/ui/primitives";
 import { cn } from "@/shared/utils";
@@ -40,13 +39,13 @@ const TABS = Object.freeze({
 });
 
 const BUTTON_BASE_CLASS =
-  "inline-flex h-10 items-center gap-1.5 rounded-[20px] ring-1 ring-inset px-3.5 text-xs font-bold uppercase disabled:cursor-not-allowed disabled:ring-white/5 disabled:bg-white/5 disabled:text-white/50";
+  "inline-flex h-8 items-center gap-1.5 rounded-full ring-1 ring-inset px-3 text-xs font-semibold select-none transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:ring-white/5 disabled:bg-white/5 disabled:text-white/50";
 
 const ACTION_BUTTON_CLASSES = Object.freeze({
-  destructive: `${BUTTON_BASE_CLASS} ring-error/15 bg-error/10 text-error hover:bg-error hover:text-black`,
-  success: `${BUTTON_BASE_CLASS} ring-success/15 bg-success/10 text-success hover:bg-success hover:text-black`,
-  info: `${BUTTON_BASE_CLASS} ring-info/15 bg-info/10 text-info hover:bg-info hover:text-black`,
-  muted: `${BUTTON_BASE_CLASS} ring-white/10 bg-white/5 text-white/70 hover:ring-error/15 hover:bg-error/10 hover:text-error`,
+  destructive: `${BUTTON_BASE_CLASS} ring-error/20 bg-error/10 text-error hover:bg-error hover:text-black`,
+  success: `${BUTTON_BASE_CLASS} ring-success/20 bg-success/10 text-success hover:bg-success hover:text-black`,
+  info: `${BUTTON_BASE_CLASS} ring-info/20 bg-info/10 text-info hover:bg-info hover:text-black`,
+  muted: `${BUTTON_BASE_CLASS} ring-white/10 bg-white/5 text-white/70 hover:ring-error/20 hover:bg-error/10 hover:text-error`,
   disabledMuted: `${BUTTON_BASE_CLASS} ring-white/10 bg-white/5 text-white/50 cursor-default`,
 });
 
@@ -235,14 +234,14 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
       custom={index}
       initial="hidden"
       animate="visible"
-      className="group relative flex h-10 w-full items-center justify-between gap-2.5 transition-all duration-300 ease-in-out"
+      className="group relative flex h-12 min-h-[48px] w-full items-center gap-3 px-1.5 transition-colors duration-150"
     >
       <Link
         href={`/account/${user.username || user.id}`}
         onClick={close}
-        className="flex min-w-0 flex-1 items-center gap-2.5"
+        className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <div className="relative size-10 shrink-0 overflow-hidden rounded-[20px] bg-black ring-1 ring-white/5 ring-inset">
+        <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-black ring-1 ring-white/10 ring-inset">
           <AdaptiveImage
             mode="img"
             src={avatarSrc}
@@ -254,16 +253,16 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
             wrapperClassName="h-full w-full"
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col justify-center -space-y-0.5">
-          <span className="truncate text-xs font-semibold text-white transition-colors">
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <span className="truncate text-xs font-semibold text-white leading-tight">
             {user.displayName}
           </span>
-          <span className="truncate text-xs font-medium text-white/50">
+          <span className="truncate text-xs font-medium text-white/50 leading-tight">
             @{user.username || "user"}
           </span>
         </div>
       </Link>
-      <div className="flex shrink-0 items-center gap-1.5">{action}</div>
+      <div className="flex shrink-0 items-center">{action}</div>
     </motion.div>
   );
 });
@@ -274,16 +273,16 @@ function LoadingList() {
       {Array.from({ length: 4 }, (_, index) => (
         <div
           key={index}
-          className="group relative flex h-10 w-full animate-pulse items-center justify-between gap-2.5"
+          className="group relative flex h-12 min-h-[48px] w-full animate-pulse items-center justify-between gap-3 px-1.5"
         >
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div className="skeleton-block size-10 shrink-0 rounded-[20px]" />
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="skeleton-block size-10 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="skeleton-block h-3 w-28 rounded-full" />
               <div className="skeleton-block-soft h-2.5 w-16 rounded-full" />
             </div>
           </div>
-          <div className="skeleton-block-soft h-10 w-20 rounded-[20px] ring-1 ring-white/5 ring-inset" />
+          <div className="skeleton-block-soft h-8 w-20 rounded-full ring-1 ring-white/5 ring-inset" />
         </div>
       ))}
     </div>
@@ -316,7 +315,6 @@ export function createAccountSocialSurfaceEntry(data = {}, config = {}) {
 export default function AccountSocialSurface({ close, data }) {
   const auth = useAuth();
   const toast = useToast();
-  const setHeader = useSurfaceHeader();
   const authUserId = auth.user?.id || null;
   const userId = String(data?.userId || "").trim() || null;
   const account = data?.account || data?.profile || null;
@@ -664,28 +662,10 @@ export default function AccountSocialSurface({ close, data }) {
   const profileAvatar =
     data?.avatarUrl || (account ? getUserAvatarUrl(account) : "solar:users-group-rounded-bold");
 
-  useEffect(() => {
-    if (!setHeader) return;
-    const tabLabel =
-      activeTab === TABS.INBOX
-        ? "Follow Requests"
-        : activeTab === TABS.FOLLOWING
-          ? "Following"
-          : "Followers";
-    const count = list.length;
-    const countLabel = isLoading ? "" : `${count} ${count === 1 ? "user" : "users"}`;
 
-    setHeader({
-      icon: profileAvatar,
-      title: profileDisplayName,
-      description: countLabel ? `${tabLabel} · ${countLabel}` : tabLabel,
-      trailing: null,
-      headerAction: null,
-    });
-  }, [setHeader, activeTab, list.length, isLoading, profileAvatar, profileDisplayName]);
 
   return (
-    <div className="flex w-full flex-col gap-2.5 overflow-hidden">
+    <div className="flex w-full flex-col overflow-hidden">
       <NavSurfaceExtension id="account-social-tabs" align="center">
         <div className="flex h-8 shrink-0 items-center gap-1.5 select-none">
           {tabs.map((tab) => {
@@ -696,7 +676,7 @@ export default function AccountSocialSurface({ close, data }) {
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "flex h-full shrink-0 cursor-pointer items-center gap-2 rounded-full px-3 text-xs font-semibold transition-all duration-200 select-none",
+                  "flex h-full shrink-0 cursor-pointer items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition-all duration-200 select-none",
                   isActive
                     ? "bg-white text-black"
                     : "text-white/70 hover:bg-white/10 hover:text-white",
@@ -782,7 +762,7 @@ export default function AccountSocialSurface({ close, data }) {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="flex w-full flex-col gap-2.5 overflow-visible"
+              className="flex min-h-[48px] w-full flex-col justify-center gap-2.5 overflow-visible"
             >
               {list.map((user, index) => (
                 <SocialUserRow

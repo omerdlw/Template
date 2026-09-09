@@ -56,6 +56,7 @@ import {
   navFadeVariants,
   navIconVariants,
   navHeaderSwapVariants,
+  navExtensionShelfVariants,
   navHeaderRestoreVariants,
   navSurfaceBodyVariants,
   navCompactTitleVariants,
@@ -65,7 +66,7 @@ import {
 import { resolveNavigationRoutePolicy, useRoutePrefetch } from "./routing";
 import { NavHudView } from "./hud";
 import { NavCommandBar } from "./commands";
-import { NavSurfaceShell } from "./surface";
+import { NavSurfaceShell, NavSurfaceExtensionsBar } from "./surface";
 import { NavMediaControls, NavMediaScrubber } from "./media";
 import { useBackgroundActions, useBackgroundState } from "@/modules/background";
 import { cn } from "@/shared/utils";
@@ -420,13 +421,11 @@ function LoadingItemContent() {
 function SurfaceStackItemContent({ link, surface, isActive }) {
   const SurfaceComponent = surface.surfaceComponent;
   const surfaceContent = surface.surfaceContent;
-  const icon = surface.surfaceIcon ?? link.icon ?? null;
   const title = surface.surfaceTitle ?? link.title ?? link.name ?? "";
-  const description = surface.surfaceDescription ?? link.description ?? "";
-  const trailing = surface.surfaceTrailing ?? link.trailing ?? null;
-  const headerAction = surface.surfaceHeaderAction ?? null;
   const closeLabel =
     surface.surfaceCloseLabel ?? link.closeLabel ?? "Close surface";
+  const backLabel =
+    surface.surfaceBackLabel ?? link.backLabel ?? "Previous step";
   const onClose =
     surface.dismissible === false
       ? null
@@ -437,25 +436,18 @@ function SurfaceStackItemContent({ link, surface, isActive }) {
   return (
     <div
       aria-hidden={isActive ? undefined : true}
-      className={cn("relative w-full overflow-visible", !isActive && "hidden")}
+      className={cn("relative w-full overflow-hidden rounded-[20px]", !isActive && "hidden")}
       inert={isActive ? undefined : true}
       onClick={(event) => event.stopPropagation()}
     >
       <div className="w-full">
         <NavSurfaceShell
-          icon={icon}
           title={title}
-          description={description}
-          trailing={trailing}
-          headerAction={headerAction}
           onClose={onClose}
           onBack={onBack}
-          stepIndex={surface.stepIndex ?? 0}
-          totalSteps={surface.totalSteps ?? 1}
-          badge={surface.badge ?? null}
           allowSwipeDismiss={surface.allowSwipeDismiss !== false}
           closeLabel={closeLabel}
-          descriptionMaxLines={surface.surfaceDescriptionMaxLines ?? 2}
+          backLabel={backLabel}
           isActive={isActive}
           onAnimationComplete={surface.onAnimationComplete}
           surfaceId={surface.surfaceId}
@@ -687,6 +679,7 @@ function StandardItemContent({
 export const NavCardItem = memo(
   forwardRef(function Item(
     {
+      activeItem = null,
       onContentHeightChange,
       isStackHovered,
       onMouseEnter,
@@ -695,6 +688,7 @@ export const NavCardItem = memo(
       globalCompact,
       restoreFromCompact = false,
       expanded,
+      hasExtensions = false,
       position,
       onClick,
       isTop,
@@ -804,13 +798,14 @@ export const NavCardItem = memo(
     const handleFocus = () => {
       if (link.isOverlay) return;
       setIsHovered(true);
+      const targetHref = link.targetPath || link.path;
       if (
         resolveNavigationRoutePolicy({
-          href: link.path,
+          href: targetHref,
           item: link,
         }).prefetch
       ) {
-        prefetchRoute(link.path, {
+        prefetchRoute(targetHref, {
           immediate: true,
         });
       }
@@ -883,6 +878,7 @@ export const NavCardItem = memo(
         />
       );
     };
+    const isExtensionShelf = Boolean(!expanded && position === 1 && hasExtensions);
     const {
       className: cardClassName,
       style: cardStyle,
@@ -893,7 +889,12 @@ export const NavCardItem = memo(
       cardStyle: itemStyle.card,
       cardScale: itemStyle.scale,
       isAnchoredToBottom: link.isSurface,
-      visibleCount: (globalCompact || link.isStatus) && !isStackHovered ? 1 : 3,
+      visibleCount: (globalCompact || link.isStatus) && !isStackHovered
+        ? 1
+        : hasExtensions && !expanded
+          ? 2
+          : 3,
+      hasExtensions,
     });
     const cardDelay = useMemo(
       () =>
@@ -985,11 +986,12 @@ export const NavCardItem = memo(
 
         <motion.div
           ref={cardContentRef}
-          className="flow-root w-full"
+          className={cn("flow-root w-full", isExtensionShelf && "min-h-[80px]")}
           animate={getNavCardContentAnimateProps({
             compact,
             expanded,
             position,
+            isExtensionShelf,
           })}
           transition={getNavCardContentTransition({
             compact,
@@ -998,13 +1000,14 @@ export const NavCardItem = memo(
           style={{
             ...NAV_COMPOSITOR_STYLE,
             pointerEvents:
-              compact || (!expanded && position > 0) ? "none" : "auto",
+              compact || (!expanded && position > 0 && !isExtensionShelf)
+                ? "none"
+                : "auto",
           }}
         >
           <AnimatePresence mode="popLayout" initial={false}>
             {link.isSurface &&
-            link.surfacePhase !== NAV_SURFACE_PHASE.DISMISSING_ACTION &&
-            link.surfacePhase !== NAV_SURFACE_PHASE.RESTORING_HEADER ? (
+            link.surfacePhase !== NAV_SURFACE_PHASE.DISMISSING_ACTION ? (
               <motion.div
                 key="surface-content-layer"
                 variants={navHeaderSwapVariants}
@@ -1015,19 +1018,30 @@ export const NavCardItem = memo(
                 style={{
                   ...NAV_COMPOSITOR_STYLE,
                 }}
-                className="w-full"
+                className="w-full overflow-hidden rounded-[20px]"
               >
                 <SurfaceItemContent link={link} />
+              </motion.div>
+            ) : isExtensionShelf ? (
+              <motion.div
+                key="extension-shelf-layer"
+                variants={navExtensionShelfVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={NAV_HEADER_SWAP_TRANSITION}
+                style={{
+                  ...NAV_COMPOSITOR_STYLE,
+                }}
+                className="relative flex w-full items-center justify-between"
+              >
+                <NavSurfaceExtensionsBar activeItem={activeItem} />
               </motion.div>
             ) : (
               <motion.div
                 key="standard-content-layer"
                 variants={navHeaderRestoreVariants}
-                initial={
-                  link.surfacePhase === NAV_SURFACE_PHASE.RESTORING_HEADER
-                    ? "hidden"
-                    : "visible"
-                }
+                initial="visible"
                 animate="visible"
                 exit="exit"
                 transition={NAV_HEADER_SWAP_TRANSITION}

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
-import { Wifi, WifiOff } from "lucide-react";
 import {
   DESTRUCTIVE_ACTION_TONE_CLASS,
   EVENT_TYPES,
@@ -29,7 +28,7 @@ export { normalizeLower, normalizeUpper };
 import { NAV_FADE_TRANSITION, textCrossfadeVariants } from "./motion";
 import { cn } from "@/shared/utils";
 import { Spinner } from "@/ui/feedback/spinner";
-import { Button } from "@/ui/primitives";
+import { Button, Icon } from "@/ui/primitives";
 export function ErrorActions({
   onRetry,
   onRefresh,
@@ -390,7 +389,7 @@ function createConnectionStatus(type) {
       type,
       title: "Connection Lost",
       description: "You are currently offline",
-      icon: <WifiOff size={24} />,
+      icon: <Icon icon="lucide:wifi-off" size={24} />,
       style: getStatusTheme(type),
     });
   }
@@ -398,7 +397,7 @@ function createConnectionStatus(type) {
     type: "ONLINE",
     title: "Connection Restored",
     description: "You are back online",
-    icon: <Wifi size={24} />,
+    icon: <Icon icon="lucide:wifi" size={24} />,
     style: getStatusTheme("ONLINE"),
     isOverlay: false,
   });

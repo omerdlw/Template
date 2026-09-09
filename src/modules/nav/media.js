@@ -349,8 +349,6 @@ export const NavMediaControls = memo(function NavMediaControls({
           <Button
             type="button"
             onClick={handleToggleMute}
-            whileHover={false}
-            whileTap={false}
             className="flex size-5 cursor-pointer items-center justify-center p-0 text-white/70 hover:text-white"
             aria-label={isMuted ? "Unmute" : "Mute"}
             title={

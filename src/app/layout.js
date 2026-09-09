@@ -4,10 +4,10 @@ import { Providers } from "./providers";
 
 export const metadata = {
   title: {
-    default: "SaaS Starter",
-    template: "%s · SaaS Starter",
+    default: "Base Framework",
+    template: "%s",
   },
-  description: "Passwordless Supabase account and security foundation",
+  description: "Base Framework",
 };
 
 export default function RootLayout({ children }) {

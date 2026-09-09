@@ -14,23 +14,21 @@ import {
 } from "@/modules/auth";
 import {
   NAV_FADE_TRANSITION,
+  NavSurfaceAction,
   NavSurfaceHeaderButton,
   textCrossfadeVariants,
-  useSurfaceHeader,
   useNavigationActions,
 } from "@/modules/nav";
 import { useToast } from "@/modules/notification";
 import { Button, Icon, Input } from "@/ui/primitives";
-import { OAuthProviderList } from "./auth-form-primitives";
+import { AUTH_INPUT_CLASS, OAuthProviderList } from "./auth-form-primitives";
 import { createSignUpSurfaceEntry } from "./sign-up-surface";
 import { createVerificationSurfaceEntry } from "./verification-surface";
 
 export function createSignInSurfaceEntry(data = {}, config = {}) {
   return {
     component: SignInSurface,
-    icon: "solar:user-circle-bold",
     title: "Sign In",
-    description: "Access your account",
     props: { data },
     ...config,
   };
@@ -45,7 +43,6 @@ export function SignInSurface({ close, data = {} }) {
   const auth = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const setHeader = useSurfaceHeader();
   const { openSurface } = useNavigationActions();
   const toast = useToast();
   const [email, setEmail] = useState(() =>
@@ -65,30 +62,6 @@ export function SignInSurface({ close, data = {} }) {
     [data.next, pathname, searchParams],
   );
   const isBusy = isSubmitting || Boolean(activeProvider);
-
-  useEffect(() => {
-    setHeader?.({
-      description: "Choose how you want to sign in",
-      headerAction: (
-        <NavSurfaceHeaderButton
-          disabled={isBusy}
-          onClick={() =>
-            void openSurface(
-              createSignUpSurfaceEntry({
-                email,
-                next: postAuthRedirect,
-              }),
-            )
-          }
-        >
-          Sign Up
-        </NavSurfaceHeaderButton>
-      ),
-      icon: "solar:user-circle-bold",
-      title: "Sign In",
-      trailing: null,
-    });
-  }, [email, isBusy, openSurface, postAuthRedirect, setHeader]);
 
   const completeAuthentication = useCallback(async () => {
     if (completionInFlight.current) return;
@@ -176,56 +149,74 @@ export function SignInSurface({ close, data = {} }) {
   }
 
   return (
-    <motion.div
-      animate="visible"
-      className="flex flex-col gap-2.5"
-      initial="hidden"
-      transition={NAV_FADE_TRANSITION}
-      variants={textCrossfadeVariants}
-    >
-      {authMethod === "methods" ? (
-        <OAuthProviderList
-          activeProvider={activeProvider}
+    <>
+      <NavSurfaceAction>
+        <NavSurfaceHeaderButton
           disabled={isBusy}
-          includeEmail
-          includePasskey
-          mode="sign-in"
-          onSelect={handleMethodSelect}
-        />
-      ) : (
-        <form className="flex flex-col gap-2.5" onSubmit={handleEmailSubmit}>
-          <Input
-            aria-label="Email"
-            autoComplete="email"
-            id="surface-sign-in-email"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Email"
-            required
-            type="email"
-            value={email}
+          onClick={() =>
+            void openSurface(
+              createSignUpSurfaceEntry({
+                email,
+                next: postAuthRedirect,
+              }),
+            )
+          }
+        >
+          Sign Up
+        </NavSurfaceHeaderButton>
+      </NavSurfaceAction>
+      <motion.div
+        animate="visible"
+        className="flex flex-col gap-2.5"
+        initial="hidden"
+        transition={NAV_FADE_TRANSITION}
+        variants={textCrossfadeVariants}
+      >
+        {authMethod === "methods" ? (
+          <OAuthProviderList
+            activeProvider={activeProvider}
+            disabled={isBusy}
+            includeEmail
+            includePasskey
+            mode="sign-in"
+            onSelect={handleMethodSelect}
           />
-          <div className="flex w-full items-center gap-2.5">
-            <Button
-              aria-label="Back to sign-in methods"
-              className="center size-11 shrink-0 rounded-[20px] bg-white/5 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black"
-              disabled={isBusy}
-              onClick={() => {
-                setAuthMethod("methods");
-              }}
-              type="button"
-            >
-              <Icon icon="material-symbols:arrow-back-rounded" size={20} />
-            </Button>
-            <Button
-              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
-              disabled={isBusy}
-              type="submit"
-            >
-              {isSubmitting ? "Sending code" : "Continue with email"}
-            </Button>
-          </div>
-        </form>
-      )}
-    </motion.div>
+        ) : (
+          <form className="flex flex-col gap-2.5" onSubmit={handleEmailSubmit}>
+            <Input
+              aria-label="Email"
+              autoComplete="email"
+              className={AUTH_INPUT_CLASS}
+              id="surface-sign-in-email"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Email"
+              required
+              type="email"
+              value={email}
+            />
+            <div className="flex w-full items-center gap-2.5">
+              <Button
+                aria-label="Back to sign-in methods"
+                className="center size-11 shrink-0 rounded-[20px] bg-white/5 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black"
+                disabled={isBusy}
+                onClick={() => {
+                  setAuthMethod("methods");
+                }}
+                type="button"
+              >
+                <Icon icon="material-symbols:arrow-back-rounded" size={20} />
+              </Button>
+              <Button
+                className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
+                disabled={isBusy}
+                type="submit"
+              >
+                {isSubmitting ? "Sending code" : "Continue with email"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </motion.div>
+    </>
   );
 }

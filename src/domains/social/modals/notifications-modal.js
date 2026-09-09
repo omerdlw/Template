@@ -22,7 +22,7 @@ import {
   applyAvatarFallback,
   getUserAvatarFallbackUrl,
   getUserAvatarUrl,
-} from "@/domains/account";
+} from "@/shared";
 import { cn } from "@/shared/utils";
 import AdaptiveImage from "@/ui/components/adaptive-image";
 import { Button, Icon } from "@/ui/primitives";

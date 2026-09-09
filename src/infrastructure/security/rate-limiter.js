@@ -11,9 +11,6 @@ function cleanupStore(store) {
   }
 }
 
-/**
- * Extract client IP address from standard request headers.
- */
 export function getClientIp(request) {
   if (!request) return "127.0.0.1";
   return (
@@ -24,15 +21,6 @@ export function getClientIp(request) {
   );
 }
 
-/**
- * Enforce an in-memory sliding-window rate limit.
- *
- * @param {string} key - Unique rate-limit identifier (e.g. `ip:sign-up:127.0.0.1`)
- * @param {object} options
- * @param {number} options.limit - Max requests allowed in the window
- * @param {number} options.windowMs - Window size in milliseconds
- * @returns {{ success: boolean, limit: number, remaining: number, resetTime: number, retryAfter: number }}
- */
 export function checkRateLimit(key, { limit = 60, windowMs = 60000 } = {}) {
   const now = Date.now();
   let record = stores.get(key);
@@ -77,9 +65,6 @@ export function checkRateLimit(key, { limit = 60, windowMs = 60000 } = {}) {
   };
 }
 
-/**
- * Helper to build standard HTTP 429 Too Many Requests response.
- */
 export function createRateLimitExceededResponse(
   rateLimitResult,
   message = "Too many requests. Please try again later.",

@@ -15,22 +15,22 @@ import {
 } from "@/modules/auth";
 import {
   NAV_FADE_TRANSITION,
+  NavSurfaceAction,
+  NavSurfaceHeaderButton,
   textCrossfadeVariants,
   useNavigationActions,
-  useSurfaceHeader,
 } from "@/modules/nav";
 import { useToast } from "@/modules/notification";
 import { Button, Icon, Input } from "@/ui/primitives";
-import { OAuthProviderList } from "./auth-form-primitives";
+import { AUTH_INPUT_CLASS, OAuthProviderList } from "./auth-form-primitives";
+import { createSignInSurfaceEntry } from "./sign-in-surface";
 import { createVerificationSurfaceEntry } from "./verification-surface";
 
 export function createSignUpSurfaceEntry(data = {}, config = {}) {
   return {
     component: SignUpSurface,
-    description: "Create your account",
-    icon: "solar:user-plus-bold",
-    props: { data },
     title: "Sign Up",
+    props: { data },
     ...config,
   };
 }
@@ -46,7 +46,6 @@ export function SignUpSurface({ close, data = {} }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { openSurface } = useNavigationActions();
-  const setHeader = useSurfaceHeader();
   const [step, setStep] = useState("methods");
   const [email, setEmail] = useState(() =>
     String(data.email || data.identifier || "").trim(),
@@ -66,20 +65,6 @@ export function SignUpSurface({ close, data = {} }) {
     [data.next, pathname, searchParams],
   );
   const isBusy = isSubmitting || Boolean(activeProvider);
-
-  useEffect(() => {
-    const isAccountStep = step === "account" || step === "profile";
-    const headers = {
-      description: isAccountStep
-        ? "Finish setting up your account"
-        : "Choose how you want to sign up",
-      headerAction: null,
-      icon: "solar:user-plus-bold",
-      title: isAccountStep ? "Your account" : "Sign Up",
-      trailing: null,
-    };
-    setHeader?.(headers);
-  }, [setHeader, step]);
 
   async function handleProviderSignUp(provider) {
     if (isBusy) return;
@@ -149,101 +134,123 @@ export function SignUpSurface({ close, data = {} }) {
   }
 
   return (
-    <motion.div
-      animate="visible"
-      className="flex flex-col gap-2.5"
-      initial="hidden"
-      transition={NAV_FADE_TRANSITION}
-      variants={textCrossfadeVariants}
-    >
-      {step === "methods" ? (
-        <OAuthProviderList
-          activeProvider={activeProvider}
-          disabled={isBusy}
-          includeEmail
-          mode="sign-up"
-          onSelect={(provider) => {
-            if (provider === "email") {
-              setStep("email");
-              return;
+    <>
+      {step === "methods" && (
+        <NavSurfaceAction>
+          <NavSurfaceHeaderButton
+            disabled={isBusy}
+            onClick={() =>
+              void openSurface(
+                createSignInSurfaceEntry({
+                  email,
+                  next: postAuthRedirect,
+                }),
+              )
             }
-            void handleProviderSignUp(provider);
-          }}
-        />
-      ) : (
-        <form className="flex flex-col gap-2.5" onSubmit={handleEmailSubmit}>
-          {step === "email" ? (
-            <Input
-              aria-label="Email"
-              autoComplete="email"
-              id="surface-sign-up-email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email"
-              required
-              type="email"
-              value={email}
-            />
-          ) : null}
-
-          {step === "account" || step === "profile" ? (
-            <>
-              <Input
-                aria-label="Username"
-                autoComplete="username"
-                id="surface-sign-up-username"
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="Username"
-                required
-                value={username}
-              />
-              <Input
-                aria-label="Display name"
-                autoComplete="name"
-                id="surface-sign-up-display-name"
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Display name"
-                required
-                value={displayName}
-              />
-            </>
-          ) : null}
-
-          <div className="flex w-full items-center gap-2.5">
-            <Button
-              aria-label="Back"
-              className="center size-11 shrink-0 rounded-[20px] bg-white/5 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black"
-              disabled={isBusy}
-              onClick={() => {
-                const previousStep = {
-                  account: "email",
-                  email: "methods",
-                  profile: "email",
-                }[step];
-
-                if (previousStep) {
-                  setStep(previousStep);
-                }
-              }}
-              type="button"
-            >
-              <Icon icon="material-symbols:arrow-back-rounded" size={20} />
-            </Button>
-            <Button
-              className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
-              disabled={isBusy}
-              type="submit"
-            >
-              {isSubmitting
-                ? step === "email"
-                  ? "Checking email"
-                  : "Sending code"
-                : step === "email"
-                  ? "Continue with email"
-                  : "Send verification code"}
-            </Button>
-          </div>
-        </form>
+          >
+            Sign In
+          </NavSurfaceHeaderButton>
+        </NavSurfaceAction>
       )}
-    </motion.div>
+      <motion.div
+        animate="visible"
+        className="flex flex-col gap-2.5"
+        initial="hidden"
+        transition={NAV_FADE_TRANSITION}
+        variants={textCrossfadeVariants}
+      >
+        {step === "methods" ? (
+          <OAuthProviderList
+            activeProvider={activeProvider}
+            disabled={isBusy}
+            includeEmail
+            mode="sign-up"
+            onSelect={(provider) => {
+              if (provider === "email") {
+                setStep("email");
+                return;
+              }
+              void handleProviderSignUp(provider);
+            }}
+          />
+        ) : (
+          <form className="flex flex-col gap-2.5" onSubmit={handleEmailSubmit}>
+            {step === "email" ? (
+              <Input
+                aria-label="Email"
+                autoComplete="email"
+                className={AUTH_INPUT_CLASS}
+                id="surface-sign-up-email"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email"
+                required
+                type="email"
+                value={email}
+              />
+            ) : null}
+
+            {step === "account" || step === "profile" ? (
+              <>
+                <Input
+                  aria-label="Username"
+                  autoComplete="username"
+                  className={AUTH_INPUT_CLASS}
+                  id="surface-sign-up-username"
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="Username"
+                  required
+                  value={username}
+                />
+                <Input
+                  aria-label="Display name"
+                  autoComplete="name"
+                  className={AUTH_INPUT_CLASS}
+                  id="surface-sign-up-display-name"
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="Display name"
+                  required
+                  value={displayName}
+                />
+              </>
+            ) : null}
+
+            <div className="flex w-full items-center gap-2.5">
+              <Button
+                aria-label="Back"
+                className="center size-11 shrink-0 rounded-[20px] bg-white/5 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black"
+                disabled={isBusy}
+                onClick={() => {
+                  const previousStep = {
+                    account: "email",
+                    email: "methods",
+                    profile: "email",
+                  }[step];
+
+                  if (previousStep) {
+                    setStep(previousStep);
+                  }
+                }}
+                type="button"
+              >
+                <Icon icon="material-symbols:arrow-back-rounded" size={20} />
+              </Button>
+              <Button
+                className="h-11 min-w-0 flex-1 justify-center rounded-[20px] bg-white px-4 text-xs font-bold text-black uppercase hover:bg-white/70 disabled:opacity-50"
+                disabled={isBusy}
+                type="submit"
+              >
+                {isSubmitting
+                  ? step === "email"
+                    ? "Checking email"
+                    : "Sending code"
+                  : step === "email"
+                    ? "Continue with email"
+                    : "Send verification code"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </motion.div>
+    </>
   );
 }

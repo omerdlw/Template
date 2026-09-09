@@ -87,7 +87,6 @@ export default function AdaptiveImage({
       suppressHydrationWarning
     >
       {mode === "img" ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={imageRef}
           src={resolvedSrc}

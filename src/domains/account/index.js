@@ -5,15 +5,23 @@ export {
   AccountProfileLayout,
 } from "./account-layout";
 
-export { AccountNavSync } from "./nav-sync";
-
 export {
+  AccountEditMenu,
+  AccountEditSettings,
   AccountEditSurface,
+  AccountProfileSettingsForm,
+  AccountSettingsForm,
   createAccountEditSurfaceEntry,
-} from "./edit";
+  SETTING_META,
+  useAccountEditState,
+} from "./account-edit-surface";
 
 export {
-  applyAvatarFallback,
-  getUserAvatarFallbackUrl,
-  getUserAvatarUrl,
-} from "./avatar";
+  AccountBioSurface,
+  createAccountBioSurfaceEntry,
+} from "./account-bio-surface";
+
+export {
+  AccountAction,
+  AccountInboxAction,
+} from "./account-action";

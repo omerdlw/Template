@@ -1,15 +1,9 @@
-export { AccountFollowNavSync } from "./nav-follow-action";
 export {
   AccountSocialSurface,
   createAccountSocialSurfaceEntry,
 } from "./account-social-surface";
-export { NotificationsNavSync } from "./notifications-nav-sync";
-export { SocialRealtimeSync } from "./social-realtime-sync";
+export { SocialRealtimeSync } from "./realtime";
 export { default as NotificationsModal } from "./modals/notifications-modal";
-export {
-  NotificationsSurface,
-  createNotificationsSurfaceEntry,
-} from "./notifications-surface";
 export {
   FOLLOW_STATUSES,
   NOTIFICATION_TYPES,

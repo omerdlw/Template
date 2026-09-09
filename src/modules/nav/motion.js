@@ -67,13 +67,13 @@ const NAV_STAGGER_TIMINGS = Object.freeze({
 export const NAV_SURFACE_CHOREOGRAPHY_TIMINGS = Object.freeze({
   ACTION_DISMISS_MS: 260,
   ACTION_DISMISS_SETTLE_MS: 100,
-  HEADER_SWAP_MS: 640,       // motion.js'teki gerçek animasyon süresiyle eşleşmeli
-  HEADER_SWAP_SETTLE_MS: 40, // artık animasyonu kesmiyor, sadece paint tamponu
+  HEADER_SWAP_MS: 0,
+  HEADER_SWAP_SETTLE_MS: 0,
   BODY_ENTER_MS: 840,
   BODY_EXIT_MS: 620,
   BODY_COLLAPSE_SETTLE_MS: 140,
-  HEADER_RESTORE_MS: 640,    // aynı mantık
-  RESTORE_SETTLE_MS: 40,
+  HEADER_RESTORE_MS: 0,
+  RESTORE_SETTLE_MS: 0,
 });
 const NAV_STAGGER_DELAY = NAV_STAGGER_TIMINGS.STANDARD;
 const NAV_TAP_SCALE = 0.98;
@@ -353,7 +353,7 @@ const staggerItemVariants = buildVariants("FAST", {
 const navHeaderSwapVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: toGpuTransform(14, 0.97),
+    transform: toGpuTransform(16, 0.98),
   },
   visible: {
     opacity: 1,
@@ -372,10 +372,32 @@ const navHeaderSwapVariants = Object.freeze({
     },
   },
 });
+const navExtensionShelfVariants = Object.freeze({
+  hidden: {
+    opacity: 0,
+    transform: toGpuTransform(6, 0.99),
+  },
+  visible: {
+    opacity: 1,
+    transform: toGpuTransform(0, 1),
+    transition: {
+      duration: 0.44,
+      ease: NAV_EASINGS.CINEMATIC,
+    },
+  },
+  exit: {
+    opacity: 0,
+    transform: toGpuTransform(-6, 0.99),
+    transition: {
+      duration: 0.32,
+      ease: NAV_EASINGS.EXIT,
+    },
+  },
+});
 const navHeaderRestoreVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: toGpuTransform(-12, 0.97),
+    transform: toGpuTransform(-16, 0.98),
   },
   visible: {
     opacity: 1,
@@ -397,23 +419,23 @@ const navHeaderRestoreVariants = Object.freeze({
 const navSurfaceControlsVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: "translate3d(14px, 0, 0) scale(0.85)",
+    transform: "translate3d(0px, 14px, 0) scale(0.92)",
   },
   visible: (customIndex = 0) => ({
     opacity: 1,
-    transform: "translate3d(0px, 0, 0) scale(1)",
+    transform: "translate3d(0px, 0px, 0) scale(1)",
     transition: {
-      duration: 0.44,
-      delay: (Number(customIndex) || 0) * 0.04 + 0.06,
+      duration: 0.64,
+      delay: (Number(customIndex) || 0) * 0.04,
       ease: NAV_EASINGS.CINEMATIC,
     },
   }),
   exit: {
     opacity: 0,
-    transform: "translate3d(12px, 0, 0) scale(0.88)",
+    transform: "translate3d(0px, 10px, 0) scale(0.95)",
     transition: {
-      duration: 0.32,
-      ease: NAV_EASINGS.EXIT,
+      duration: 0.44,
+      ease: NAV_EASINGS.CINEMATIC,
     },
   },
 });
@@ -466,11 +488,11 @@ const navSurfaceBodyVariants = Object.freeze({
 const navSurfaceExtensionsVariants = Object.freeze({
   hidden: {
     opacity: 0,
-    transform: toGpuTransform(10, 0.96),
+    transform: toGpuTransform(-18, 0.85),
   },
   visible: {
     opacity: 1,
-    transform: toGpuTransform(0),
+    transform: toGpuTransform(-28, 0.85),
     transition: {
       duration: 0.54,
       ease: NAV_EASINGS.CINEMATIC,
@@ -478,7 +500,7 @@ const navSurfaceExtensionsVariants = Object.freeze({
   },
   exit: {
     opacity: 0,
-    transform: toGpuTransform(6, 0.98),
+    transform: toGpuTransform(-18, 0.85),
     transition: {
       duration: 0.38,
       ease: NAV_EASINGS.EXIT,
@@ -775,8 +797,9 @@ function getNavCardContentAnimateProps({
   compact = false,
   expanded = false,
   position = 0,
+  isExtensionShelf = false,
 } = {}) {
-  const isHidden = compact || (!expanded && position > 0);
+  const isHidden = compact || (!expanded && position > 0 && !isExtensionShelf);
   return {
     opacity: isHidden ? 0 : 1,
     transform: toGpuTransform(
@@ -909,6 +932,7 @@ export {
   textCrossfadeVariants,
   staggerItemVariants,
   navHeaderSwapVariants,
+  navExtensionShelfVariants,
   navHeaderRestoreVariants,
   navSurfaceControlsVariants,
   navCommandBarSwapVariants,

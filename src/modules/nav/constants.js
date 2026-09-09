@@ -93,6 +93,8 @@ export const NAV_CARD_DIMENSIONS = Object.freeze({
   compactHeight: 38,
   chromeHeight: 20,
   collapsedY: -10,
+  extensionShelfY: -44,
+  extensionShelfScale: 0.88,
   hudHeight: 52,
   actionGap: 10,
   height: 68,
@@ -106,6 +108,8 @@ export const NAV_CARD_LAYOUT = Object.freeze({
     offsetY: NAV_CARD_DIMENSIONS.expandedY,
     scale: 1,
   }),
+  extensionShelfY: NAV_CARD_DIMENSIONS.extensionShelfY,
+  extensionShelfScale: NAV_CARD_DIMENSIONS.extensionShelfScale,
   compactHeight: NAV_CARD_DIMENSIONS.compactHeight,
   chromeHeight: NAV_CARD_DIMENSIONS.chromeHeight,
   hudHeight: NAV_CARD_DIMENSIONS.hudHeight,
@@ -204,6 +208,7 @@ export const SECTION_ICONS = Object.freeze({
   settings: "solar:settings-bold",
 });
 export const PLAYBACK_RATES = Object.freeze([1, 1.25, 1.5, 2]);
+
 export const NAV_ACTION_STYLES = Object.freeze({
   base: "center w-full rounded-[20px] gap-2.5 ring-1 ring-inset px-4 py-2.5 text-xs font-semibold uppercase cursor-pointer",
   muted: "ring-white/5 bg-white/5 hover:bg-white/10 text-white/70",
@@ -217,11 +222,13 @@ export const NAV_ACTION_STYLES = Object.freeze({
   row: "flex w-full gap-2.5",
   icon: 16,
 });
+
 export const NAV_ACTION_MOTION_PROPS = Object.freeze({
   whileTap: {
     scale: 0.98,
   },
 });
+
 export const STATUS_PRIORITY = Object.freeze({
   GUARD: 120,
   ACCOUNT_DELETE: 115,

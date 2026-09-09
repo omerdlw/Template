@@ -21,7 +21,7 @@ import {
 } from "./layout";
 import { NavBreadcrumbsCard, useNavBreadcrumbs } from "./breadcrumbs";
 import {
-  NavSurfaceExtensionsBar,
+  NavSurfaceControls,
   useIsSurfaceExtensionsVisible,
 } from "./surface";
 import { useNavKeyboard } from "./behavior";
@@ -168,6 +168,7 @@ export {
   createSurfaceFlowSession,
   createSurfaceReturnHandshake,
   isSurfaceDescriptor,
+  NavSurfaceAction,
   NavSurfaceExtension,
   NavSurfaceExtensionsBar,
   normalizeSurfaceExtension,
@@ -175,10 +176,13 @@ export {
   resolveSurfaceAction,
   SurfaceExtensionsContext,
   SurfaceExtensionsProvider,
+  SurfaceHeaderActionContext,
   updateSurfaceFlowSession,
   useIsSurfaceExtensionsVisible,
+  useSurfaceAction,
   useSurfaceExtensions,
   useSurfaceFlow,
+  useSurfaceHeader,
   useSurfaceId,
 } from "./surface";
 export {
@@ -219,6 +223,7 @@ export {
 export {
   NavHeightSpacer,
   NavHud,
+  NavSurfaceControls,
   NavSurfaceHeader,
   NavSurfaceHeaderButton,
   NavSurfaceShell,
@@ -243,7 +248,6 @@ export {
   useNavigationSelector,
   useNavigationState,
   useSurfaceReturn,
-  useSurfaceHeader,
 } from "./provider";
 export {
   clearNavigationDiagnostics,
@@ -395,7 +399,16 @@ export default function Nav() {
     isStatusActive && !isNotFound ? activeItem?.style || null : null;
   const visibleNavigationItems = expanded
     ? navigationItems
-    : navigationItems.slice(0, isStatusActive ? 1 : presentedCompact ? 1 : 3);
+    : navigationItems.slice(
+        0,
+        isStatusActive
+          ? 1
+          : presentedCompact
+            ? 1
+            : isExtensionsVisible
+              ? 2
+              : 3,
+      );
   const renderedNavItems = visibleNavigationItems.map((link, index) => {
     const position = index;
     const isTop = position === 0;
@@ -425,8 +438,9 @@ export default function Nav() {
         }
         return;
       }
-      if (link.path)
-        navigate(link.path, {
+      const targetPath = link.targetPath || link.path;
+      if (targetPath)
+        navigate(targetPath, {
           item: link,
         });
     };
@@ -434,6 +448,7 @@ export default function Nav() {
       <NavCardItem
         key={getItemKey(link, index)}
         link={link}
+        activeItem={activeItem}
         expanded={expanded}
         compact={isCompactCard}
         globalCompact={presentedCompact}
@@ -442,6 +457,7 @@ export default function Nav() {
         isTop={isTop}
         isActive={isActive}
         isStackHovered={isStackHovered}
+        hasExtensions={isExtensionsVisible}
         statusStyle={statusStyle}
         isHudActive={isHudActive}
         hud={hud}
@@ -480,7 +496,7 @@ export default function Nav() {
             animate="visible"
             exit="exit"
             transition={NAV_BACKDROP_TRANSITION}
-            className="fixed inset-0 cursor-pointer bg-linear-to-t from-black/80 via-black/60 to-transparent backdrop-blur-sm"
+            className="fixed inset-0 cursor-pointer bg-black/70"
             style={{
               zIndex: Z_INDEX.NAV_BACKDROP,
             }}
@@ -509,7 +525,10 @@ export default function Nav() {
         })}
         transition={navStackTransition}
       >
-        <NavSurfaceExtensionsBar activeItem={activeItem} />
+        <NavSurfaceControls
+          activeItem={activeItem}
+          hasExtensions={isExtensionsVisible}
+        />
         <AnimatePresence>
           {isBreadcrumbsCardVisible && <NavBreadcrumbsCard />}
         </AnimatePresence>

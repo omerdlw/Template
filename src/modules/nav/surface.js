@@ -22,6 +22,7 @@ import {
 import {
   NAVIGATION_EVENTS,
   NAVIGATION_LIFECYCLE,
+  NAV_CARD_LAYOUT,
   NAV_SURFACE_FLOW_STATUS,
   NAV_SURFACE_PHASE,
   NAV_SURFACE_RENDER_MODE,
@@ -57,6 +58,7 @@ import {
   navSurfaceExtensionsVariants,
   slideFadeVariants,
   NAV_SURFACE_CHOREOGRAPHY_TIMINGS,
+  NAV_EASINGS,
 } from "./motion";
 import { createNavigationScheduler } from "./scheduler";
 import { cn } from "@/shared/utils";
@@ -787,22 +789,10 @@ export function transitionSurface(currentState, event = {}) {
             ],
           );
     case SURFACE_TRANSITION_EVENTS.ADVANCE:
-      if (state.phase === NAV_SURFACE_PHASE.DISMISSING_ACTION) {
-        return createTransitionResult(
-          freezeSurfaceTransitionState({
-            ...state,
-            phase: NAV_SURFACE_PHASE.SWAPPING_HEADER,
-          }),
-          [
-            createScheduledTransition(
-              NAV_SURFACE_CHOREOGRAPHY_TIMINGS.HEADER_SWAP_MS +
-                NAV_SURFACE_CHOREOGRAPHY_TIMINGS.HEADER_SWAP_SETTLE_MS,
-              "surface:swap-header",
-            ),
-          ],
-        );
-      }
-      if (state.phase === NAV_SURFACE_PHASE.SWAPPING_HEADER) {
+      if (
+        state.phase === NAV_SURFACE_PHASE.DISMISSING_ACTION ||
+        state.phase === NAV_SURFACE_PHASE.SWAPPING_HEADER
+      ) {
         const activeSurfaceId = state.surfaceIds.at(-1);
         return createTransitionResult(
           freezeSurfaceTransitionState({
@@ -830,22 +820,10 @@ export function transitionSurface(currentState, event = {}) {
           }),
         );
       }
-      if (state.phase === NAV_SURFACE_PHASE.COLLAPSING_BODY) {
-        return createTransitionResult(
-          freezeSurfaceTransitionState({
-            ...state,
-            phase: NAV_SURFACE_PHASE.RESTORING_HEADER,
-          }),
-          [
-            createScheduledTransition(
-              NAV_SURFACE_CHOREOGRAPHY_TIMINGS.HEADER_RESTORE_MS +
-                NAV_SURFACE_CHOREOGRAPHY_TIMINGS.RESTORE_SETTLE_MS,
-              "surface:restore-header",
-            ),
-          ],
-        );
-      }
-      if (state.phase === NAV_SURFACE_PHASE.RESTORING_HEADER) {
+      if (
+        state.phase === NAV_SURFACE_PHASE.COLLAPSING_BODY ||
+        state.phase === NAV_SURFACE_PHASE.RESTORING_HEADER
+      ) {
         const releasedSurfaceIds = state.closingSurfaceIds;
         const surfaceIds = state.surfaceIds.filter(
           (surfaceId) => !releasedSurfaceIds.includes(surfaceId),
@@ -2030,13 +2008,82 @@ export function useSurfaceStack({
   };
 }
 const SurfaceHeaderContext = createContext(null);
+export const SurfaceHeaderActionContext = createContext(null);
 export const SurfaceExtensionsContext = createContext(null);
 export const SurfaceIdContext = createContext(null);
 export function useSurfaceId() {
   return useContext(SurfaceIdContext);
 }
 export function useSurfaceHeader() {
-  return useContext(SurfaceHeaderContext);
+  const store = useContext(SurfaceHeaderActionContext);
+  const surfaceId = useSurfaceId();
+  return useCallback(
+    (patch) => {
+      if (!store) return;
+      const data = typeof patch === "function" ? patch({}) : patch;
+      if (data?.headerAction !== undefined) {
+        store.setAction(surfaceId, data.headerAction);
+      }
+    },
+    [store, surfaceId],
+  );
+}
+export function useSurfaceAction(action) {
+  const store = useContext(SurfaceHeaderActionContext);
+  const surfaceId = useSurfaceId();
+  useEffect(() => {
+    if (!store || action === undefined) return undefined;
+    store.setAction(surfaceId, action);
+    return () => {
+      store.removeAction(surfaceId);
+    };
+  }, [store, surfaceId, action]);
+}
+export function NavSurfaceAction({ children }) {
+  useSurfaceAction(children);
+  return null;
+}
+class SurfaceHeaderActionStore {
+  constructor() {
+    this.actionsBySurface = new Map();
+    this.listeners = new Set();
+    this.version = 0;
+  }
+  subscribe = (listener) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+  notify = () => {
+    this.version++;
+    for (const listener of this.listeners) {
+      listener();
+    }
+  };
+  getAction = (surfaceId) => {
+    const sId = surfaceId != null ? String(surfaceId) : "global";
+    return (
+      this.actionsBySurface.get(sId) ??
+      this.actionsBySurface.get("global") ??
+      null
+    );
+  };
+  setAction = (surfaceId, action) => {
+    const sId = surfaceId != null ? String(surfaceId) : "global";
+    if (this.actionsBySurface.get(sId) === action) return;
+    this.actionsBySurface.set(sId, action);
+    this.notify();
+  };
+  removeAction = (surfaceId) => {
+    const sId = surfaceId != null ? String(surfaceId) : "global";
+    if (!this.actionsBySurface.has(sId)) return;
+    this.actionsBySurface.delete(sId);
+    this.notify();
+  };
+  clearSurface = (surfaceId) => {
+    this.removeAction(surfaceId);
+  };
 }
 class SurfaceExtensionsStore {
   constructor() {
@@ -2133,12 +2180,18 @@ class SurfaceExtensionsStore {
 }
 export function SurfaceExtensionsProvider({ children }) {
   const storeRef = useRef(null);
+  const actionStoreRef = useRef(null);
   if (!storeRef.current) {
     storeRef.current = new SurfaceExtensionsStore();
   }
+  if (!actionStoreRef.current) {
+    actionStoreRef.current = new SurfaceHeaderActionStore();
+  }
   return (
     <SurfaceExtensionsContext.Provider value={storeRef.current}>
-      {children}
+      <SurfaceHeaderActionContext.Provider value={actionStoreRef.current}>
+        {children}
+      </SurfaceHeaderActionContext.Provider>
     </SurfaceExtensionsContext.Provider>
   );
 }
@@ -2217,7 +2270,7 @@ function ExtensionPill({ ext, fill = false }) {
   return (
     <div
       className={cn(
-        "pointer-events-auto flex h-10 max-w-full items-center gap-1 rounded-full bg-black/60 p-1 shadow-lg ring-1 ring-white/10 backdrop-blur-xl select-none ring-inset",
+        "pointer-events-auto flex min-h-6 h-full max-w-full items-center gap-1 select-none",
         fill && "w-full min-w-0 flex-1",
         ext.className,
       )}
@@ -2294,7 +2347,7 @@ export const NavSurfaceExtensionsBar = memo(function NavSurfaceExtensionsBar({
     return Array.from(map.values()).sort((a, b) => a.order - b.order);
   }, [descriptorExtensions, dynamicExtensions]);
   const hasExtensions = allExtensions.length > 0;
-  const shouldRender = isSurface && isBodyVisible && hasExtensions;
+  const shouldRender = hasExtensions;
   const leftExtensions = useMemo(
     () => allExtensions.filter((e) => e.align === "left"),
     [allExtensions],
@@ -2308,54 +2361,39 @@ export const NavSurfaceExtensionsBar = memo(function NavSurfaceExtensionsBar({
     [allExtensions],
   );
   const hasCenter = centerExtensions.length > 0;
+  if (!shouldRender) return null;
   return (
-    <AnimatePresence>
-      {shouldRender && (
-        <motion.div
-          key={`nav-surface-extensions-${surfaceId}`}
-          variants={navSurfaceExtensionsVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          transition={NAV_SURFACE_EXTENSIONS_ENTER_TRANSITION}
-          style={NAV_COMPOSITOR_STYLE}
-          className="pointer-events-none absolute inset-x-0 bottom-[calc(100%+4px)] z-20 flex w-full items-center justify-between gap-1 select-none"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {}
-          <div className="pointer-events-auto flex min-w-0 flex-1 items-center justify-start gap-1">
-            {leftExtensions.map((ext) => (
-              <ExtensionPill
-                key={ext.id}
-                ext={ext}
-                fill={!hasCenter && leftExtensions.length === 1}
-              />
-            ))}
-          </div>
+    <div
+      className="relative flex min-h-8 w-full items-center justify-between select-none"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {/* Left */}
+      <div className="pointer-events-auto z-10 flex shrink-0 items-center justify-start gap-1">
+        {leftExtensions.map((ext) => (
+          <ExtensionPill
+            key={ext.id}
+            ext={ext}
+            fill={!hasCenter && leftExtensions.length === 1}
+          />
+        ))}
+      </div>
 
-          {}
-          {hasCenter && (
-            <div className="pointer-events-auto flex shrink-0 items-center justify-center gap-1">
-              {centerExtensions.map((ext) => (
-                <ExtensionPill key={ext.id} ext={ext} />
-              ))}
-            </div>
-          )}
-
-          {}
-          <div
-            className={cn(
-              "pointer-events-auto flex items-center justify-end gap-1",
-              hasCenter ? "min-w-0 flex-1" : "shrink-0",
-            )}
-          >
-            {rightExtensions.map((ext) => (
-              <ExtensionPill key={ext.id} ext={ext} />
-            ))}
-          </div>
-        </motion.div>
+      {/* Center - geometrically centered along container midpoint */}
+      {hasCenter && (
+        <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 flex items-center justify-center gap-1">
+          {centerExtensions.map((ext) => (
+            <ExtensionPill key={ext.id} ext={ext} />
+          ))}
+        </div>
       )}
-    </AnimatePresence>
+
+      {/* Right */}
+      <div className="pointer-events-auto z-10 ml-auto flex shrink-0 items-center justify-end gap-1">
+        {rightExtensions.map((ext) => (
+          <ExtensionPill key={ext.id} ext={ext} />
+        ))}
+      </div>
+    </div>
   );
 });
 export function NavSurfaceHeaderButton({
@@ -2364,7 +2402,9 @@ export function NavSurfaceHeaderButton({
   disabled = false,
   onClick,
   ariaLabel,
+  icon = null,
 }) {
+  const isText = typeof children === "string" || Array.isArray(children);
   return (
     <Button
       type="button"
@@ -2373,233 +2413,182 @@ export function NavSurfaceHeaderButton({
         onClick?.(event);
       }}
       disabled={disabled}
-      aria-label={ariaLabel}
+      aria-label={
+        ariaLabel || (typeof children === "string" ? children : undefined)
+      }
       className={cn(
-        "center relative h-8 shrink-0 cursor-pointer gap-1 rounded-xl bg-white/5 px-2.5 text-xs font-bold whitespace-nowrap text-white/70 uppercase ring-1 ring-white/5 ring-inset hover:z-10 hover:bg-white hover:text-black hover:ring-transparent focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/10 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        "pointer-events-auto center shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none",
+        isText ? "h-9 px-3.5 text-xs font-semibold" : "size-9",
         className,
       )}
     >
+      {icon ? <Iconify icon={icon} size={16} /> : null}
       {children}
     </Button>
   );
 }
-export function NavSurfaceHeader({
-  icon = null,
-  title = "",
-  description = "",
-  trailing = null,
-  headerAction = null,
+export const NavSurfaceControls = memo(function NavSurfaceControls({
+  activeItem = null,
+  hasExtensions = false,
   onClose = null,
   onBack = null,
-  stepIndex = 0,
-  totalSteps = 1,
-  badge = null,
-  closeLabel = "Close surface",
-  backLabel = "Previous step",
-  descriptionMaxLines = 2,
-  descriptionId = undefined,
+  closeLabel = null,
+  backLabel = null,
+  showDragHandle = false,
   className = "",
-  titleId = undefined,
 }) {
-  const hasHeaderAction = Boolean(headerAction);
-  const hasClose = typeof onClose === "function";
-  const hasBack = typeof onBack === "function";
-  const controlCount = [hasHeaderAction, hasBack, hasClose].filter(
-    Boolean,
-  ).length;
-  const renderedHeaderAction = useMemo(() => {
-    if (!hasHeaderAction) return null;
-    if (isValidElement(headerAction)) {
-      return cloneElement(headerAction, {
-        className: cn(
-          headerAction.props?.className,
-          hasClose ? "rounded-l-[20px] rounded-r-none" : "rounded-[20px]",
-        ),
-      });
-    }
-    return headerAction;
-  }, [hasClose, hasHeaderAction, headerAction]);
-  const stepIndicatorText =
-    totalSteps > 1 ? `Step ${stepIndex + 1} of ${totalSteps}` : null;
-  const surfaceHeaderKey = useMemo(() => {
-    const iconPart =
-      typeof icon === "string" ? icon : icon ? "icon-node" : "no-icon";
-    return `${iconPart}:${title}:${description}:${stepIndex}:${badge || ""}`;
-  }, [badge, description, icon, stepIndex, title]);
+  const isSurface = Boolean(activeItem ? activeItem.isSurface : true);
+  const phase = activeItem?.surfacePhase;
+  const isBodyVisible = activeItem
+    ? phase === NAV_SURFACE_PHASE.EXPANDING_BODY ||
+      phase === NAV_SURFACE_PHASE.OPEN
+    : true;
+
+  const actionStore = useContext(SurfaceHeaderActionContext);
+  const surfaceId = activeItem?.surfaceId || "global";
+
+  const subscribeAction = useCallback(
+    (onStoreChange) => {
+      if (!actionStore) return () => {};
+      return actionStore.subscribe(onStoreChange);
+    },
+    [actionStore],
+  );
+  const getActionSnapshot = useCallback(() => {
+    if (!actionStore) return null;
+    return actionStore.getAction(surfaceId);
+  }, [actionStore, surfaceId]);
+
+  const dynamicAction = useSyncExternalStore(
+    subscribeAction,
+    getActionSnapshot,
+    () => null,
+  );
+
+  const resolvedHeaderAction =
+    dynamicAction ??
+    activeItem?.headerAction ??
+    activeItem?.surfaceHeaderAction ??
+    null;
+
+  const resolvedClose =
+    onClose ||
+    (activeItem?.dismissible !== false
+      ? activeItem?.closeAllSurfaces || activeItem?.closeSurface
+      : null);
+  const resolvedBack = onBack || activeItem?.onBack;
+  const resolvedCloseLabel =
+    closeLabel || activeItem?.surfaceCloseLabel || "Close surface";
+  const resolvedBackLabel =
+    backLabel || activeItem?.surfaceBackLabel || "Previous step";
+
+  const hasClose = typeof resolvedClose === "function";
+  const hasBack = typeof resolvedBack === "function";
+  const hasHeaderAction = Boolean(resolvedHeaderAction);
+
+  if (!isBodyVisible || (!hasClose && !hasBack && !hasHeaderAction)) {
+    return null;
+  }
+
+  const targetY = hasExtensions ? (NAV_CARD_LAYOUT.extensionShelfY ?? -36) : 0;
+
   return (
-    <div
-      className={cn(
-        "relative flex w-full min-w-0 items-start justify-between gap-2.5",
-        className,
-      )}
-    >
-      <div className="relative min-w-0 flex-1 overflow-hidden">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
-            key={surfaceHeaderKey}
-            variants={navHeaderSwapVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            transition={NAV_HEADER_SWAP_TRANSITION}
-            className="flex w-full min-w-0 items-center gap-2.5 overflow-hidden"
-            style={{
-              ...NAV_COMPOSITOR_STYLE,
-            }}
-          >
-            {icon ? (
-              <div className="relative size-12 shrink-0">
-                {isImageIconSource(icon) ? (
-                  <div
-                    className="size-12 shrink-0 rounded-[20px] bg-cover bg-center bg-no-repeat"
-                    style={{
-                      backgroundImage: `url(${icon})`,
-                    }}
-                  />
-                ) : (
-                  <div className="center size-12 rounded-[20px] bg-white/5 text-white">
-                    {typeof icon === "string" ? (
-                      <Iconify icon={icon} size={24} />
-                    ) : (
-                      icon
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            <div className="flex min-w-0 flex-1 items-center justify-between gap-2.5 overflow-hidden">
-              <div className="flex min-w-0 flex-1 flex-col justify-center -space-y-0.5">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <h3
-                    id={titleId}
-                    className="truncate text-base font-bold text-white"
-                  >
-                    {title}
-                  </h3>
-                  {badge ? (
-                    <span className="center rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-white">
-                      {badge}
-                    </span>
-                  ) : stepIndicatorText ? (
-                    <span className="text-xs font-semibold text-white/50">
-                      • {stepIndicatorText}
-                    </span>
-                  ) : null}
-                </div>
-                {description ? (
-                  <p
-                    id={descriptionId}
-                    className="text-sm leading-snug text-white/70"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: descriptionMaxLines,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {description}
-                  </p>
-                ) : null}
-              </div>
-              {trailing ? <div className="shrink-0">{trailing}</div> : null}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {controlCount ? (
-        <motion.div
-          key="nav-surface-header-controls"
-          variants={navSurfaceControlsVariants}
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className={cn(
-            "flex shrink-0 items-center self-start",
-            controlCount > 1 ? "gap-[1px]" : "gap-1",
-          )}
-        >
-          {renderedHeaderAction ? (
+    <AnimatePresence>
+      <motion.div
+        key="nav-surface-controls-container"
+        initial={{ opacity: 0, y: targetY + 6 }}
+        animate={{ opacity: 1, y: targetY }}
+        exit={{ opacity: 0, y: targetY + 6 }}
+        transition={{ duration: 0.44, ease: NAV_EASINGS.CINEMATIC }}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-[calc(100%+4px)] z-30 select-none flex items-center justify-center gap-2",
+          className,
+        )}
+      >
+        <AnimatePresence mode="popLayout">
+          {hasHeaderAction && (
             <motion.div
-              key="surface-header-action"
-              variants={navSurfaceControlsVariants}
-              custom={0}
+              key="nav-surface-custom-action"
+              initial={{ opacity: 0, scale: 0.92, x: 4 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.92, x: 4 }}
+              transition={{ duration: 0.28, ease: NAV_EASINGS.CINEMATIC }}
+              className="pointer-events-auto flex shrink-0 items-center"
             >
-              {renderedHeaderAction}
+              {resolvedHeaderAction}
             </motion.div>
-          ) : null}
-          {hasBack ? (
+          )}
+
+          {hasBack && (
             <motion.div
-              key="surface-header-back"
-              variants={navSurfaceControlsVariants}
-              custom={1}
+              key="nav-surface-back"
+              initial={{ opacity: 0, scale: 0.85, x: 4 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.85, x: 4 }}
+              transition={{ duration: 0.32, ease: NAV_EASINGS.CINEMATIC }}
+              className="pointer-events-auto"
             >
               <Button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onBack();
+                  resolvedBack();
                 }}
-                className={cn(
-                  "center relative size-8 shrink-0 cursor-pointer bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:z-10 hover:bg-white hover:text-black hover:ring-transparent focus-visible:z-10",
-                  hasClose
-                    ? "rounded-l-[20px] rounded-r-none"
-                    : "rounded-[20px]",
-                  hasHeaderAction ? "rounded-l-none" : "",
-                )}
-                aria-label={backLabel}
+                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                aria-label={resolvedBackLabel}
+                title={resolvedBackLabel}
               >
                 <Iconify icon="solar:alt-arrow-left-bold" size={16} />
               </Button>
             </motion.div>
-          ) : null}
-          {hasClose ? (
+          )}
+
+          {hasClose && (
             <motion.div
-              key="surface-header-close"
-              variants={navSurfaceControlsVariants}
-              custom={2}
+              key="nav-surface-close"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.32, ease: NAV_EASINGS.CINEMATIC }}
+              className="pointer-events-auto"
             >
               <Button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onClose();
+                  resolvedClose();
                 }}
-                className={cn(
-                  "center relative size-8 shrink-0 cursor-pointer bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:z-10 hover:bg-white hover:text-black hover:ring-transparent focus-visible:z-10",
-                  controlCount > 1
-                    ? "rounded-l-none rounded-r-[20px]"
-                    : "rounded-[20px]",
-                )}
-                aria-label={closeLabel}
+                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                aria-label={resolvedCloseLabel}
+                title={resolvedCloseLabel}
               >
-                <Iconify icon="material-symbols:close-rounded" size={16} />
+                <Iconify icon="material-symbols:close-rounded" size={17} />
               </Button>
             </motion.div>
-          ) : null}
-        </motion.div>
-      ) : null}
-    </div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </AnimatePresence>
   );
+});
+
+/**
+ * @deprecated Nav surfaces are headerless. Use page or inline headers instead.
+ */
+export function NavSurfaceHeader() {
+  return null;
 }
+
 export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
   {
-    icon = null,
     title = "",
-    description = "",
-    trailing = null,
-    headerAction = null,
     onClose = null,
     onBack = null,
-    stepIndex = 0,
-    totalSteps = 1,
-    badge = null,
     allowSwipeDismiss = true,
     closeLabel = "Close surface",
     backLabel = "Previous step",
-    descriptionMaxLines = 2,
+    showDragHandle = false,
+    showControls = false,
     className = "",
     contentClassName = "",
     children,
@@ -2611,41 +2600,8 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
   ref,
 ) {
   const surfaceElementRef = useRef(null);
-  const [headerState, setHeaderState] = useState({
-    icon,
-    title,
-    description,
-    trailing,
-    headerAction,
-    onBack,
-    stepIndex,
-    totalSteps,
-    badge,
-  });
-  useEffect(() => {
-    setHeaderState((previousState) => ({
-      ...previousState,
-      icon,
-      title,
-      description,
-      trailing,
-      headerAction,
-      onBack,
-      stepIndex,
-      totalSteps,
-      badge,
-    }));
-  }, [
-    badge,
-    description,
-    headerAction,
-    icon,
-    onBack,
-    stepIndex,
-    title,
-    totalSteps,
-    trailing,
-  ]);
+  const patchHeader = useCallback(() => {}, []);
+
   const setSurfaceElementRef = useCallback(
     (node) => {
       surfaceElementRef.current = node;
@@ -2657,27 +2613,21 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
     },
     [ref],
   );
+
   const isFullyOpen = surfacePhase === NAV_SURFACE_PHASE.OPEN;
-  const patchHeader = useCallback((patch) => {
-    setHeaderState((previousState) => ({
-      ...previousState,
-      ...(typeof patch === "function" ? patch(previousState) : patch),
-    }));
-  }, []);
   const titleId =
     surfaceId == null ? undefined : `nav-surface-title-${surfaceId}`;
-  const descriptionId =
-    surfaceId == null || !headerState.description
-      ? undefined
-      : `nav-surface-description-${surfaceId}`;
+
   const dragY = useMotionValue(0);
   const dragOpacity = useTransform(dragY, [0, 180], [1, 0.75]);
   const dragScale = useTransform(dragY, [0, 180], [1, 0.96]);
+
   useNavigationFocusTrap({
     containerRef: surfaceElementRef,
     enabled: isActive && isFullyOpen,
     onDismiss: typeof onClose === "function" ? onClose : null,
   });
+
   const handleDragEnd = (_event, info) => {
     if (
       !isActive ||
@@ -2690,13 +2640,12 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
       onClose();
     }
   };
+
   const isBodyVisible =
     surfacePhase === NAV_SURFACE_PHASE.EXPANDING_BODY ||
     surfacePhase === NAV_SURFACE_PHASE.OPEN;
-  const isHeaderVisible =
-    surfacePhase !== NAV_SURFACE_PHASE.DISMISSING_ACTION &&
-    surfacePhase !== NAV_SURFACE_PHASE.IDLE;
   const resolvedSurfaceId = surfaceId || "active";
+
   return (
     <SurfaceIdContext.Provider value={resolvedSurfaceId}>
       <SurfaceHeaderContext.Provider value={patchHeader}>
@@ -2704,13 +2653,12 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
           ref={setSurfaceElementRef}
           role="dialog"
           aria-modal="true"
-          aria-describedby={descriptionId}
           aria-hidden={isActive ? undefined : true}
           aria-labelledby={titleId}
           inert={isActive ? undefined : true}
           tabIndex={-1}
           className={cn(
-            "relative flex flex-col gap-2.5 overflow-visible",
+            "relative flex flex-col overflow-hidden rounded-[20px]",
             !isActive && "hidden",
             className,
           )}
@@ -2734,25 +2682,23 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
           onDragEnd={handleDragEnd}
           onAnimationComplete={onAnimationComplete}
         >
-          <div className="w-full">
-            <NavSurfaceHeader
-              descriptionMaxLines={descriptionMaxLines}
-              descriptionId={descriptionId}
-              description={headerState.description}
-              trailing={headerState.trailing}
-              headerAction={headerState.headerAction}
-              title={headerState.title}
-              titleId={titleId}
-              icon={headerState.icon}
-              onBack={headerState.onBack || onBack}
-              stepIndex={headerState.stepIndex ?? stepIndex}
-              totalSteps={headerState.totalSteps ?? totalSteps}
-              badge={headerState.badge ?? badge}
-              closeLabel={closeLabel}
-              backLabel={backLabel}
-              onClose={onClose}
-            />
-          </div>
+          {title ? (
+            <h2 id={titleId} className="sr-only">
+              {title}
+            </h2>
+          ) : null}
+
+          <AnimatePresence>
+            {showControls && isBodyVisible ? (
+              <NavSurfaceControls
+                onClose={onClose}
+                onBack={onBack}
+                closeLabel={closeLabel}
+                backLabel={backLabel}
+                showDragHandle={showDragHandle}
+              />
+            ) : null}
+          </AnimatePresence>
 
           <AnimatePresence mode="wait" initial={false}>
             {isBodyVisible && (
@@ -2770,7 +2716,7 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
                 style={{
                   ...NAV_COMPOSITOR_STYLE,
                 }}
-                className={cn("w-full overflow-visible", contentClassName)}
+                className={cn("w-full overflow-hidden rounded-[20px]", contentClassName)}
               >
                 {children}
               </motion.div>

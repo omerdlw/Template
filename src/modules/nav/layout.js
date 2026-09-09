@@ -44,6 +44,7 @@ export function getNavItemCardProps({
   cardScale,
   cardStyle,
   expanded,
+  hasExtensions = false,
   isAnchoredToBottom,
   position,
   visibleCount = 3,
@@ -61,10 +62,21 @@ export function getNavItemCardProps({
   const isTop = position === 0;
   const isHeavyBlur = isTop || expanded;
   const collapsedScaleValue = collapsedScale ** position;
-  const y = expanded ? position * expandedOffsetY : position * collapsedOffsetY;
-  const scale = expanded ? cardScale || 1 : collapsedScaleValue;
+  const isShelf = !expanded && position === 1 && hasExtensions;
+  const y = expanded
+    ? position * expandedOffsetY
+    : isShelf
+      ? NAV_CARD_LAYOUT.extensionShelfY
+      : position * collapsedOffsetY;
+  const shelfScale = NAV_CARD_LAYOUT.extensionShelfScale ?? 0.85;
+  const scale = expanded
+    ? cardScale || 1
+    : isShelf
+      ? shelfScale
+      : collapsedScaleValue;
   const collapsedOpacity = Math.max(0.1, +(1 - position * 0.2).toFixed(2));
-  const opacity = expanded ? 1 : position < visibleCount ? collapsedOpacity : 0;
+  const opacity =
+    expanded || isShelf ? 1 : position < visibleCount ? collapsedOpacity : 0;
   return {
     className: cn(
       "absolute h-auto w-full ring-1 ring-inset ring-white/10 bg-black/60 rounded-[30px] p-2.5 transform-gpu isolate",
@@ -471,8 +483,16 @@ export function shouldRenderInlineAction(
 
 export function getIsItemActive(link, activeItem) {
   if (!link || !activeItem) return false;
-  if (link.path && activeItem.path)
-    return isSamePath(link.path, activeItem.path);
+  if (link.path && activeItem.path && isSamePath(link.path, activeItem.path)) {
+    return true;
+  }
+  if (
+    link.targetPath &&
+    activeItem.targetPath &&
+    isSamePath(link.targetPath, activeItem.targetPath)
+  ) {
+    return true;
+  }
   return Boolean(link.name && activeItem.name && link.name === activeItem.name);
 }
 export function canPreviewStackOnTopHover(compact, expanded) {

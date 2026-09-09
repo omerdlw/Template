@@ -214,6 +214,7 @@ export function useNavigationGuard(options = {}) {
   };
 }
 export {
+  NavSurfaceControls,
   NavSurfaceHeader,
   NavSurfaceHeaderButton,
   NavSurfaceShell,
@@ -618,7 +619,8 @@ function findNavigationItemIndex(navigationItems, activeItem, pathname) {
     }
   }
   const matchedIndex = navigationItems.findIndex((item) =>
-    isSamePath(item.path, normalizedPathname),
+    isSamePath(item.path, normalizedPathname) ||
+    (item.targetPath && isSamePath(item.targetPath, normalizedPathname)),
   );
   return matchedIndex;
 }
@@ -645,13 +647,15 @@ function resolveBaseActiveItem({
     return rawItems.find((item) => isNotFoundItem(item)) || rawItems[0] || null;
   }
   const matchedNavigationItem = navigationItems.find((item) =>
-    isSamePath(item.path, normalizedPathname),
+    isSamePath(item.path, normalizedPathname) ||
+    (item.targetPath && isSamePath(item.targetPath, normalizedPathname)),
   );
   if (matchedNavigationItem) {
     return matchedNavigationItem;
   }
   const matchedRawItem = rawItems.find((item) =>
-    isSamePath(item.path, normalizedPathname),
+    isSamePath(item.path, normalizedPathname) ||
+    (item.targetPath && isSamePath(item.targetPath, normalizedPathname)),
   );
   if (matchedRawItem) {
     return matchedRawItem;

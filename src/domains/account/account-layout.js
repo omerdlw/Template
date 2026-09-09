@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BackdropHero from "@/ui/components/backdrop-hero";
 import AdaptiveImage from "@/ui/components/adaptive-image";
 import { Button, Icon } from "@/ui/primitives";
-import { getInitial, globalEvents } from "@/shared";
+import {
+  applyAvatarFallback,
+  getInitial,
+  getUserAvatarFallbackUrl,
+  globalEvents,
+} from "@/shared";
 import { useNavigationActions } from "@/modules/nav";
 import { createAccountSocialSurfaceEntry } from "@/domains/social";
+import { createAccountBioSurfaceEntry } from "./account-bio-surface";
 
 function formatJoinDate(value) {
   if (!value) return null;
@@ -33,6 +39,60 @@ export function AccountBackdropHero({ image }) {
       position="center 25%"
       className="lg:h-[clamp(28rem,40vw,34rem)] xl:h-[clamp(30rem,42vw,36rem)]"
     />
+  );
+}
+
+function AccountHeroBio({ account, onOpenBio }) {
+  const textRef = useRef(null);
+  const bio = account?.bio || "";
+  const [hasTextOverflow, setHasTextOverflow] = useState(false);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element || !bio) return;
+
+    const checkOverflow = () => {
+      setHasTextOverflow(element.scrollWidth > element.clientWidth);
+    };
+
+    const frameId = requestAnimationFrame(checkOverflow);
+
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    resizeObserver.observe(element);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+    };
+  }, [bio]);
+
+  if (!bio) return null;
+
+  const isOverflowing = bio.includes("\n") || hasTextOverflow;
+
+  return (
+    <div className="mt-3 flex items-center gap-1.5 text-xs text-white/70 sm:mt-3.5 sm:text-sm">
+      <p
+        ref={textRef}
+        className={`min-w-0 truncate ${
+          isOverflowing
+            ? "cursor-pointer select-none transition-all hover:text-white/90"
+            : ""
+        }`}
+        onClick={isOverflowing ? onOpenBio : undefined}
+      >
+        {bio}
+      </p>
+      {isOverflowing ? (
+        <button
+          className="shrink-0 cursor-pointer font-medium text-white underline underline-offset-2 transition-all hover:text-white/80"
+          onClick={onOpenBio}
+          type="button"
+        >
+          read more
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -72,6 +132,18 @@ export function AccountHero({
     );
   };
 
+  const handleOpenBio = () => {
+    if (!account?.bio) return;
+    void openSurface(
+      createAccountBioSurfaceEntry({
+        account,
+        bio: account.bio,
+        displayName,
+        username: account.username,
+      }),
+    );
+  };
+
   useEffect(() => {
     return globalEvents.subscribe("social:follow-change", (payload) => {
       if (payload?.followingId === account?.id) {
@@ -102,6 +174,12 @@ export function AccountHero({
               <AdaptiveImage
                 alt=""
                 className="size-full object-cover"
+                onError={(event) =>
+                  applyAvatarFallback(
+                    event,
+                    getUserAvatarFallbackUrl(account),
+                  )
+                }
                 src={account.avatarUrl}
               />
             ) : (
@@ -116,7 +194,7 @@ export function AccountHero({
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/50 sm:mt-2 sm:text-base">
               <Button
-                className="inline-flex cursor-pointer items-center gap-1.5 transition-colors hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-1.5 transition-all hover:text-white"
                 onClick={() => handleOpenSocial("following")}
                 type="button"
               >
@@ -125,7 +203,7 @@ export function AccountHero({
               </Button>
               <span className="text-white/50">•</span>
               <Button
-                className="inline-flex cursor-pointer items-center gap-1.5 transition-colors hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-1.5 transition-all hover:text-white"
                 onClick={() => handleOpenSocial("followers")}
                 type="button"
               >
@@ -142,11 +220,7 @@ export function AccountHero({
               ) : null}
             </div>
 
-            {account?.bio ? (
-              <p className="mt-3 truncate text-xs leading-normal text-white/70 sm:mt-3.5 sm:text-sm">
-                {account.bio}
-              </p>
-            ) : null}
+            <AccountHeroBio account={account} onOpenBio={handleOpenBio} />
           </div>
         </div>
       </section>
@@ -219,4 +293,3 @@ export function AccountLayout({
 }
 
 export const AccountProfileLayout = AccountLayout;
-

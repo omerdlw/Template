@@ -67,7 +67,7 @@ export function checkRateLimit(key, { limit = 60, windowMs = 60000 } = {}) {
 
 export function createRateLimitExceededResponse(
   rateLimitResult,
-  message = "Too many requests. Please try again later.",
+  message = "Too many requests — please try again later",
 ) {
   return Response.json(
     { error: message },

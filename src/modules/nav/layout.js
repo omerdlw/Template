@@ -88,7 +88,7 @@ export function getNavItemCardProps({
 
   return {
     className: cn(
-      "absolute h-auto w-full ring-1 ring-inset ring-white/10 bg-black/60 rounded-[30px] p-2.5 transform-gpu isolate",
+      "absolute h-auto w-full ring-1 ring-white/10 bg-black/60 rounded-[30px] p-2.5 transform-gpu isolate",
       isHeavyBlur ? "backdrop-blur-lg" : "backdrop-blur-sm",
       isTop ? "inset-0 h-full" : isAnchoredToBottom ? "bottom-0" : "top-0",
       isAnchoredToBottom ? "cursor-default" : "cursor-pointer",

@@ -17,10 +17,10 @@ const PROVIDER_CONFIG = Object.freeze({
 });
 
 export const AUTH_INPUT_CLASS =
-  "h-11 w-full rounded-[20px] bg-white/5 px-4 text-sm text-white ring-1 ring-inset ring-white/5 placeholder:text-white/50 transition-all hover:bg-white/10 hover:ring-white/15 focus:bg-white/10 focus:ring-white/50";
+  "h-10 w-full rounded-[20px] bg-white/5 px-4 text-sm text-white ring-1 ring-inset ring-white/5 placeholder:text-white/50 transition-all hover:bg-white/10 hover:ring-white/10 focus:bg-white/10 focus:ring-white/10";
 
 const PROVIDER_BUTTON_CLASS =
-  "group flex h-11 w-full cursor-pointer items-center justify-between rounded-[20px] bg-white/5 px-4 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black hover:ring-transparent disabled:cursor-not-allowed disabled:opacity-50";
+  "group flex h-10 w-full text-sm cursor-pointer items-center justify-between rounded-[20px] bg-white/5 px-4 text-white/70 ring-1 ring-inset ring-white/5 hover:bg-white hover:text-black hover:ring-transparent disabled:cursor-not-allowed disabled:opacity-50";
 
 export function OAuthProviderButton({
   disabled = false,

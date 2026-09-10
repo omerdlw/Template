@@ -235,6 +235,7 @@ export {
   NavSurfaceControls,
   NavSurfaceHeader,
   NavSurfaceHeaderButton,
+  NavSurfaceHeaderRadiusContext,
   NavSurfaceShell,
   NavigationProvider,
   checkGuards,

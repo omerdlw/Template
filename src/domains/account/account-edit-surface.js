@@ -683,7 +683,7 @@ function SurfaceMediaForm({
                   src={currentAvatar}
                 />
               ) : (
-                <div className="flex size-full items-center justify-center text-white/40">
+                <div className="flex size-full items-center justify-center text-white/50">
                   <Icon icon="solar:user-circle-bold" size={32} />
                 </div>
               )}
@@ -721,7 +721,7 @@ function SurfaceMediaForm({
                   src={currentBanner}
                 />
               ) : (
-                <div className="flex size-full items-center justify-center text-white/40">
+                <div className="flex size-full items-center justify-center text-white/50">
                   <Icon icon="solar:gallery-bold" size={32} />
                 </div>
               )}
@@ -1387,7 +1387,7 @@ function AuthenticatorSection({ auth, factors = [], reloadSecurity }) {
           >
             <div className="flex min-w-0 items-center gap-3">
               <Icon
-                className="shrink-0 text-emerald-400"
+                className="shrink-0 text-success"
                 icon="solar:shield-check-bold"
                 size={18}
               />

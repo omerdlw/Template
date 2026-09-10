@@ -237,7 +237,7 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
       custom={index}
       initial="hidden"
       animate="visible"
-      className="group relative flex h-12 min-h-[48px] w-full items-center gap-3 overflow-hidden rounded-[16px] px-1.5 transition-colors duration-150"
+      className="group relative flex h-12 min-h-[48px] w-full items-center gap-2.5 overflow-hidden transition-colors duration-150"
     >
       {hasBanner ? (
         <div
@@ -254,7 +254,7 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
                 "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.65) 70%, black 100%)",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
         </div>
       ) : null}
 

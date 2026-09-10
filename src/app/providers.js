@@ -30,6 +30,7 @@ import {
 } from "@/modules/registry";
 import { EVENT_TYPES, globalEvents } from "@/shared";
 import { AccountAction } from "@/domains/account/account-action";
+import { createAccountSetupSurfaceEntry } from "@/domains/auth/account-setup-surface";
 import { createSignInSurfaceEntry } from "@/domains/auth";
 import {
   createAccountSocialSurfaceEntry,
@@ -287,6 +288,41 @@ function AccountRouteNavGuard() {
   return null;
 }
 
+function OAuthAccountSetupGuard() {
+  const auth = useAuth();
+  const { openSurface } = useNavigationActions();
+  const router = useRouter();
+  const pathname = usePathname();
+  const hasPrompted = useRef(false);
+
+  useEffect(() => {
+    if (!auth.isReady || !auth.isAuthenticated) return;
+    if (hasPrompted.current) return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("setup") !== "account") return;
+
+    hasPrompted.current = true;
+    const next = searchParams.get("next") || "/account";
+
+    // Strip the ?setup param from the URL without navigation
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("setup");
+    cleanUrl.searchParams.delete("next");
+    window.history.replaceState(null, "", cleanUrl.toString());
+
+    queueMicrotask(() => {
+      void openSurface(
+        createAccountSetupSurfaceEntry({ next }),
+      ).then((result) => {
+        if (!result?.success) return;
+      });
+    });
+  }, [auth.isAuthenticated, auth.isReady, openSurface, router, pathname]);
+
+  return null;
+}
+
 function GlobalShellActions() {
   const auth = useAuth();
   const router = useRouter();
@@ -399,6 +435,7 @@ export function Providers({ children }) {
                       <NavigationProvider>
                         <SocialRealtimeSync />
                         <AccountRouteNavGuard />
+                        <OAuthAccountSetupGuard />
                         <GlobalShellActions />
                         <AuthEventBridge />
                         <BackgroundOverlay />

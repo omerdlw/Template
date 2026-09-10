@@ -49,8 +49,8 @@ export function AccountBioSurface({
         data-lenis-prevent
         data-lenis-prevent-wheel
       >
-        <p className="select-text whitespace-pre-wrap break-words text-sm leading-relaxed text-justify text-white/90 sm:text-base">
-          {bio || "No bio provided."}
+        <p className="select-text whitespace-pre-wrap break-words text-sm leading-relaxed text-justify text-white/70 sm:text-base">
+          {bio || "No bio provided"}
         </p>
       </div>
     </motion.div>

@@ -19,6 +19,7 @@ import {
   textCrossfadeVariants,
   useNavigationActions,
 } from "@/modules/nav";
+import { EVENT_TYPES, globalEvents } from "@/shared";
 import { useToast } from "@/modules/notification";
 import { Button, Icon, Input } from "@/ui/primitives";
 import { AUTH_INPUT_CLASS, OAuthProviderList } from "./auth-form-primitives";
@@ -89,6 +90,20 @@ export function SignInSurface({ close, data = {} }) {
     if (isBusy) return;
 
     setActiveProvider(provider);
+    globalEvents.emit(EVENT_TYPES.AUTH_FEEDBACK, {
+      description:
+        provider === "passkey"
+          ? "Preparing passkey sign-in"
+          : `Redirecting to ${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in`,
+      flow: "login",
+      phase: "start",
+      priority: 110,
+      statusType: "LOGIN",
+      themeType: "LOGIN",
+      title: "Signing In",
+    });
+
+    let redirecting = false;
     try {
       if (provider === "passkey") {
         await signInWithPasskey(auth.client);
@@ -100,10 +115,24 @@ export function SignInSurface({ close, data = {} }) {
         provider,
         redirectTo: getAuthCallbackUrl(postAuthRedirect),
       });
+      redirecting = true;
+      // Clear feedback after 12s in case redirect stalls
+      window.setTimeout(() => {
+        globalEvents.emit(EVENT_TYPES.AUTH_FEEDBACK, {
+          flow: "login",
+          phase: "clear",
+          statusType: "LOGIN",
+        });
+      }, 12000);
     } catch (error) {
+      globalEvents.emit(EVENT_TYPES.AUTH_FEEDBACK, {
+        flow: "login",
+        phase: "failure",
+        statusType: "LOGIN",
+      });
       toast.error(error.message || "Authentication failed");
     } finally {
-      setActiveProvider(null);
+      if (!redirecting) setActiveProvider(null);
     }
   }
 

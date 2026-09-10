@@ -20,7 +20,7 @@ export async function POST(request) {
     if (!ipRateLimit.success) {
       return createRateLimitExceededResponse(
         ipRateLimit,
-        "Too many sign-up attempts. Please try again shortly.",
+        "Too many sign-up attempts — please try again shortly",
       );
     }
 
@@ -34,7 +34,7 @@ export async function POST(request) {
     if (!emailRateLimit.success) {
       return createRateLimitExceededResponse(
         emailRateLimit,
-        "Too many attempts for this email address. Please try again shortly.",
+        "Too many attempts for this email address — please try again shortly",
       );
     }
 

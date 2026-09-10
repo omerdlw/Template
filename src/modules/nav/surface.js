@@ -2427,6 +2427,17 @@ export const NavSurfaceExtensionsBar = memo(function NavSurfaceExtensionsBar({
     </div>
   );
 });
+export const NavSurfaceHeaderRadiusContext = createContext(null);
+
+function applyControlRadius(className, radiusClass) {
+  if (typeof className !== "string" || !className) return radiusClass;
+  const stripped = className
+    .replace(/\brounded(?:-[a-zA-Z0-9_-]+)?\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return [stripped, radiusClass].filter(Boolean).join(" ");
+}
+
 export function NavSurfaceHeaderButton({
   children,
   className = "",
@@ -2435,6 +2446,8 @@ export function NavSurfaceHeaderButton({
   ariaLabel,
   icon = null,
 }) {
+  const contextRadius = useContext(NavSurfaceHeaderRadiusContext);
+  const radiusClass = contextRadius ?? "rounded-full";
   const isText = typeof children === "string" || Array.isArray(children);
   return (
     <Button
@@ -2448,7 +2461,8 @@ export function NavSurfaceHeaderButton({
         ariaLabel || (typeof children === "string" ? children : undefined)
       }
       className={cn(
-        "pointer-events-auto center shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none",
+        "pointer-events-auto center shrink-0 cursor-pointer bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color,border-radius] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none",
+        radiusClass,
         isText ? "h-9 px-3.5 text-xs font-semibold" : "size-9",
         className,
       )}
@@ -2517,6 +2531,29 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
   const hasBack = typeof resolvedBack === "function";
   const hasHeaderAction = Boolean(resolvedHeaderAction);
 
+  const activeControlKeys = [];
+  if (hasHeaderAction) activeControlKeys.push("action");
+  if (hasBack) activeControlKeys.push("back");
+  if (hasClose) activeControlKeys.push("close");
+
+  const getControlRadiusClass = (key) => {
+    if (activeControlKeys.length <= 1) {
+      return "rounded-full";
+    }
+    const index = activeControlKeys.indexOf(key);
+    if (index === 0) {
+      return "rounded-l-full rounded-r-none";
+    }
+    if (index === activeControlKeys.length - 1) {
+      return "rounded-r-full rounded-l-none";
+    }
+    return "rounded-none";
+  };
+
+  const actionRadiusClass = getControlRadiusClass("action");
+  const backRadiusClass = getControlRadiusClass("back");
+  const closeRadiusClass = getControlRadiusClass("close");
+
   if (!isBodyVisible || (!hasClose && !hasBack && !hasHeaderAction)) {
     return null;
   }
@@ -2533,7 +2570,7 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
         animate="visible"
         exit="exit"
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-[calc(100%+4px)] z-30 select-none flex items-center justify-center gap-2",
+          "pointer-events-none absolute inset-x-0 bottom-[calc(100%+4px)] z-30 select-none flex items-center justify-center gap-[2px]",
           className,
         )}
       >
@@ -2547,10 +2584,18 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
               exit="exit"
               className="pointer-events-auto flex shrink-0 items-center"
             >
-              {resolvedHeaderAction}
+              <NavSurfaceHeaderRadiusContext.Provider value={actionRadiusClass}>
+                {isValidElement(resolvedHeaderAction)
+                  ? cloneElement(resolvedHeaderAction, {
+                      className: applyControlRadius(
+                        resolvedHeaderAction.props?.className,
+                        actionRadiusClass,
+                      ),
+                    })
+                  : resolvedHeaderAction}
+              </NavSurfaceHeaderRadiusContext.Provider>
             </motion.div>
           )}
-
           {hasBack && (
             <motion.div
               key="nav-surface-back"
@@ -2566,7 +2611,10 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
                   event.stopPropagation();
                   resolvedBack();
                 }}
-                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                className={cn(
+                  "center size-9 shrink-0 cursor-pointer bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color,border-radius] duration-150 ease-out",
+                  backRadiusClass,
+                )}
                 aria-label={resolvedBackLabel}
                 title={resolvedBackLabel}
               >
@@ -2574,7 +2622,6 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
               </Button>
             </motion.div>
           )}
-
           {hasClose && (
             <motion.div
               key="nav-surface-close"
@@ -2590,11 +2637,14 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
                   event.stopPropagation();
                   resolvedClose();
                 }}
-                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                className={cn(
+                  "center size-9 shrink-0 cursor-pointer bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color,border-radius] duration-150 ease-out",
+                  closeRadiusClass,
+                )}
                 aria-label={resolvedCloseLabel}
                 title={resolvedCloseLabel}
               >
-                <Iconify icon="material-symbols:close-rounded" size={17} />
+                <Iconify icon="material-symbols:close-rounded" size={16} />
               </Button>
             </motion.div>
           )}

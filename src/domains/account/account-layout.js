@@ -76,7 +76,7 @@ function AccountHeroBio({ account, onOpenBio }) {
         ref={textRef}
         className={`min-w-0 truncate ${
           isOverflowing
-            ? "cursor-pointer select-none transition-all hover:text-white/90"
+            ? "cursor-pointer select-none transition-all hover:text-white"
             : ""
         }`}
         onClick={isOverflowing ? onOpenBio : undefined}
@@ -84,13 +84,13 @@ function AccountHeroBio({ account, onOpenBio }) {
         {bio}
       </p>
       {isOverflowing ? (
-        <button
-          className="shrink-0 cursor-pointer font-medium text-white underline underline-offset-2 transition-all hover:text-white/80"
+        <Button
+          className="shrink-0 cursor-pointer font-medium text-white underline underline-offset-2 transition-all hover:text-white"
           onClick={onOpenBio}
           type="button"
         >
           read more
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -279,7 +279,7 @@ export function AccountLayout({
                   This account is private
                 </h3>
                 <p className="text-xs text-white/50">
-                  Follow this account to see their activity.
+                  Follow this account to see their activity
                 </p>
               </div>
             </div>

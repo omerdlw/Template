@@ -197,9 +197,16 @@ const NavIconOverlay = memo(function NavIconOverlay({ overlay }) {
 export const NavCardBanner = memo(function NavCardBanner({
   bannerUrl,
   compact,
+  expanded = false,
   isSurfaceActive = false,
 }) {
-  const shouldRender = isValidBannerUrl(bannerUrl) && !compact && !isSurfaceActive;
+  // Banner only renders when nav is explicitly expanded.
+  // In collapsed/decked mode (active or inactive cards), banner is never shown.
+  const shouldRender =
+    isValidBannerUrl(bannerUrl) &&
+    expanded &&
+    !compact &&
+    !isSurfaceActive;
 
   return (
     <AnimatePresence>
@@ -223,7 +230,7 @@ export const NavCardBanner = memo(function NavCardBanner({
                 "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 20%, rgba(0,0,0,0.8) 75%, black 100%)",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
         </motion.div>
       )}
     </AnimatePresence>
@@ -1022,6 +1029,7 @@ export const NavCardItem = memo(
         <NavCardBanner
           bannerUrl={link.bannerUrl}
           compact={compact}
+          expanded={expanded}
           isSurfaceActive={isSurfaceActive || link.isSurface}
         />
 

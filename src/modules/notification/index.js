@@ -95,7 +95,7 @@ export function NotificationOverlay({ notification, onDismiss }) {
         onDismiss();
       }}
       className={cn(
-        "pointer-events-auto relative w-full overflow-hidden rounded-none bg-black/80 p-2.5 ring-1 ring-white/10 backdrop-blur-xl transition-all duration-300 ease-in-out ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 sm:rounded-[30px]",
+        "pointer-events-auto relative w-full overflow-hidden rounded-none bg-black/80 p-2.5 ring-1 ring-white/10 backdrop-blur-lg transition-all duration-300 ease-in-out ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 sm:rounded-[30px]",
         theme.surface,
       )}
       style={{

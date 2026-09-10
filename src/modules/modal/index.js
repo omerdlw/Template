@@ -411,7 +411,7 @@ function ModalLayer({
           className={cn(
             "modal-panel relative flex flex-col",
             isPanelChrome
-              ? "overflow-hidden bg-black/60 shadow-[0_18px_56px_rgba(0,0,0,0.50)] ring-1 ring-white/10 backdrop-blur-xl ring-inset"
+              ? "overflow-hidden bg-black/60 shadow-[0_18px_56px_rgba(0,0,0,0.50)] ring-1 ring-white/10 backdrop-blur-lg ring-inset"
               : "overflow-visible bg-transparent ring-1 ring-transparent ring-inset",
             isPanelChrome &&
               (activePosition === MODAL_POSITIONS.CENTER
@@ -580,7 +580,7 @@ export function Modal() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed inset-0 cursor-pointer bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 cursor-pointer bg-black/60"
             style={{
               zIndex: Z_INDEX.MODAL,
             }}

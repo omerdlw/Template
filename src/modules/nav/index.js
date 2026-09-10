@@ -20,10 +20,7 @@ import {
   useNavViewport,
 } from "./layout";
 import { NavBreadcrumbsCard, useNavBreadcrumbs } from "./breadcrumbs";
-import {
-  NavSurfaceControls,
-  useIsSurfaceExtensionsVisible,
-} from "./surface";
+import { NavSurfaceControls, useIsSurfaceExtensionsVisible } from "./surface";
 import { useNavKeyboard } from "./behavior";
 import { NavCardItem } from "./cards";
 import {
@@ -32,12 +29,13 @@ import {
   NAV_CARD_HEIGHT_OPEN_TRANSITION,
   NAV_STACK_TRANSITION,
   NAV_SURFACE_CHOREOGRAPHY_TIMINGS,
+  NAV_SURFACE_RESIZE_TRANSITION,
+  NAV_SURFACE_BODY_STEP_TRANSITION,
+  getNavBackdropTransition,
   getNavStackAnimateProps,
   navBackdropVariants,
 } from "./motion";
-import {
-  NAV_SURFACE_PHASE,
-} from "./constants";
+import { NAV_SURFACE_PHASE } from "./constants";
 import {
   useNavigation,
   useNavigationActions,
@@ -68,6 +66,8 @@ export {
   NAV_HEADER_SWAP_TRANSITION,
   NAV_SURFACE_BODY_ENTER_TRANSITION,
   NAV_SURFACE_BODY_EXIT_TRANSITION,
+  NAV_SURFACE_RESIZE_TRANSITION,
+  NAV_SURFACE_BODY_STEP_TRANSITION,
   navActionDismissVariants,
   navHeaderSwapVariants,
   navHeaderRestoreVariants,
@@ -108,6 +108,15 @@ export {
   NAV_SURFACE_TRANSITION,
   NAV_SURFACE_DRAG_CONSTRAINTS,
   NAV_SURFACE_DRAG_ELASTIC,
+  NAV_SURFACE_DRAG_THRESHOLDS,
+  NAV_SURFACE_DRAG_INTERPOLATION,
+  NAV_SURFACE_DRAG,
+  navSurfaceControlsContainerVariants,
+  navSurfaceControlsActionVariants,
+  navSurfaceControlsBackVariants,
+  navSurfaceControlsCloseVariants,
+  getPrefersReducedMotion,
+  NAV_REDUCED_MOTION_TRANSITION,
 } from "./motion";
 export {
   NAV_ACTION_MOTION_PROPS,
@@ -303,7 +312,7 @@ export default function Nav() {
   const compactDirection = compactPresentation.direction;
   useEffect(() => {
     if (!compactDirection) return undefined;
-    const frameId = window.requestAnimationFrame(() => {
+    const timerId = window.setTimeout(() => {
       setCompactPresentation((previousPresentation) =>
         previousPresentation.direction
           ? {
@@ -312,8 +321,8 @@ export default function Nav() {
             }
           : previousPresentation,
       );
-    });
-    return () => window.cancelAnimationFrame(frameId);
+    }, 360);
+    return () => window.clearTimeout(timerId);
   }, [compactDirection]);
   const navRef = useRef(null);
   const { portalTarget, stackWidth } = useNavViewport(activeItem);
@@ -321,7 +330,10 @@ export default function Nav() {
     setIsStackHovered(false);
     setIsHovered(false);
   }, [setIsHovered]);
-  const isOverlayActive = Boolean(activeItem?.isOverlay);
+  const isSurfaceClosing =
+    activeItem?.surfacePhase === NAV_SURFACE_PHASE.COLLAPSING_BODY ||
+    activeItem?.surfacePhase === NAV_SURFACE_PHASE.RESTORING_HEADER;
+  const isOverlayActive = Boolean(activeItem?.isOverlay && !isSurfaceClosing);
   const isBackdropVisible =
     !isFullscreenStateActive && (expanded || isOverlayActive);
   const isCompactPreviewActive =
@@ -359,13 +371,29 @@ export default function Nav() {
     },
   );
   const handleOutsideDismiss = useCallback(() => {
+    if (activeItem?.isSurface) {
+      if (typeof activeItem.closeAllSurfaces === "function") {
+        activeItem.closeAllSurfaces();
+        return;
+      }
+      if (typeof activeItem.closeSurface === "function") {
+        activeItem.closeSurface();
+        return;
+      }
+    }
     if (isOverlayActive) return;
     if (isCompactPreviewActive) {
       clearHoverState();
       return;
     }
     setExpanded(false);
-  }, [clearHoverState, isCompactPreviewActive, isOverlayActive, setExpanded]);
+  }, [
+    activeItem,
+    clearHoverState,
+    isCompactPreviewActive,
+    isOverlayActive,
+    setExpanded,
+  ]);
   useNavKeyboard({
     expanded,
     focusedIndex,
@@ -401,13 +429,7 @@ export default function Nav() {
     ? navigationItems
     : navigationItems.slice(
         0,
-        isStatusActive
-          ? 1
-          : presentedCompact
-            ? 1
-            : isExtensionsVisible
-              ? 2
-              : 3,
+        isStatusActive ? 1 : presentedCompact ? 1 : isExtensionsVisible ? 2 : 3,
       );
   const renderedNavItems = visibleNavigationItems.map((link, index) => {
     const position = index;
@@ -458,6 +480,10 @@ export default function Nav() {
         isActive={isActive}
         isStackHovered={isStackHovered}
         hasExtensions={isExtensionsVisible}
+        isSurfaceActive={Boolean(
+          activeItem?.isSurface &&
+          activeItem?.surfacePhase !== NAV_SURFACE_PHASE.RESTORING_HEADER,
+        )}
         statusStyle={statusStyle}
         isHudActive={isHudActive}
         hud={hud}
@@ -471,11 +497,11 @@ export default function Nav() {
     );
   });
   const navStackTransition = useMemo(() => {
-    if (
-      activeItem?.surfacePhase === NAV_SURFACE_PHASE.EXPANDING_BODY ||
-      activeItem?.surfacePhase === NAV_SURFACE_PHASE.OPEN
-    ) {
+    if (activeItem?.surfacePhase === NAV_SURFACE_PHASE.EXPANDING_BODY) {
       return NAV_CARD_HEIGHT_OPEN_TRANSITION;
+    }
+    if (activeItem?.surfacePhase === NAV_SURFACE_PHASE.OPEN) {
+      return NAV_SURFACE_RESIZE_TRANSITION;
     }
     if (
       activeItem?.surfacePhase === NAV_SURFACE_PHASE.COLLAPSING_BODY ||
@@ -495,8 +521,11 @@ export default function Nav() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            transition={NAV_BACKDROP_TRANSITION}
-            className="fixed inset-0 cursor-pointer bg-black/70"
+            transition={getNavBackdropTransition({
+              expanded,
+              isSurface: isOverlayActive,
+            })}
+            className="fixed inset-0 cursor-pointer bg-black/60"
             style={{
               zIndex: Z_INDEX.NAV_BACKDROP,
             }}
@@ -507,7 +536,7 @@ export default function Nav() {
       <motion.div
         id="nav-card-stack"
         ref={navRef}
-        className="fixed inset-x-0 bottom-[4px] mx-auto touch-manipulation select-none"
+        className="fixed inset-x-0 bottom-1 mx-auto touch-manipulation select-none"
         data-controls-hidden={
           expanded || activeItem?.isSurface ? "true" : "false"
         }

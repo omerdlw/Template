@@ -28,7 +28,7 @@ function formatJoinDate(value) {
 function resolveAccountBackdropUrl(profile) {
   const banner = String(profile?.bannerUrl || "").trim();
   if (!banner) return null;
-  if (/^(https?:\/\/|\/)/.test(banner)) return banner;
+  if (/^(https?:\/\/|\/|data:image\/)/.test(banner)) return banner;
   return null;
 }
 

@@ -44,21 +44,22 @@ import { isSafeInternalHref } from "./routing";
 import {
   NAV_COMPACT_TO_SURFACE_DELAY_MS,
   NAV_COMPOSITOR_STYLE,
-  NAV_HEADER_SWAP_TRANSITION,
   NAV_SURFACE_BODY_ENTER_TRANSITION,
   NAV_SURFACE_BODY_EXIT_TRANSITION,
-  NAV_SURFACE_EXTENSIONS_ENTER_TRANSITION,
+  NAV_SURFACE_BODY_STEP_TRANSITION,
+  NAV_SURFACE_CHOREOGRAPHY_TIMINGS,
   NAV_SURFACE_DRAG_CONSTRAINTS,
   NAV_SURFACE_DRAG_ELASTIC,
+  NAV_SURFACE_DRAG_INTERPOLATION,
+  NAV_SURFACE_DRAG_THRESHOLDS,
+  NAV_SURFACE_CLOSE_TO_COMPACT_DELAY_MS,
   NAV_SURFACE_EXIT_SETTLE_MS,
-  navHeaderSwapVariants,
-  navSurfaceDragTransformTemplate,
-  navSurfaceControlsVariants,
   navSurfaceBodyVariants,
-  navSurfaceExtensionsVariants,
-  slideFadeVariants,
-  NAV_SURFACE_CHOREOGRAPHY_TIMINGS,
-  NAV_EASINGS,
+  navSurfaceControlsActionVariants,
+  navSurfaceControlsBackVariants,
+  navSurfaceControlsCloseVariants,
+  navSurfaceControlsContainerVariants,
+  navSurfaceDragTransformTemplate,
 } from "./motion";
 import { createNavigationScheduler } from "./scheduler";
 import { cn } from "@/shared/utils";
@@ -821,6 +822,23 @@ export function transitionSurface(currentState, event = {}) {
         );
       }
       if (
+        state.phase === NAV_SURFACE_PHASE.COLLAPSING_BODY &&
+        NAV_SURFACE_CHOREOGRAPHY_TIMINGS.HEADER_RESTORE_MS > 0
+      ) {
+        return createTransitionResult(
+          freezeSurfaceTransitionState({
+            ...state,
+            phase: NAV_SURFACE_PHASE.RESTORING_HEADER,
+          }),
+          [
+            createScheduledTransition(
+              NAV_SURFACE_CHOREOGRAPHY_TIMINGS.HEADER_RESTORE_MS,
+              "surface:restore-header",
+            ),
+          ],
+        );
+      }
+      if (
         state.phase === NAV_SURFACE_PHASE.COLLAPSING_BODY ||
         state.phase === NAV_SURFACE_PHASE.RESTORING_HEADER
       ) {
@@ -1397,7 +1415,20 @@ export function useSurfaceStack({
         compactUnlockTimerRef.current = null;
       }
       wasCompactRef.current = false;
-      setCompactLock("surface-opening", false);
+      // Surface Close → Normal → Compact sıralaması:
+      // Compact lock'u hemen açmak yerine normal mod settle süresini bekle.
+      // Bu süre içinde nav normal modda kalır, behavior.js scroll listener'ı
+      // compact'ı yeniden aktive edemez.
+      compactUnlockTimerRef.current = runtimeScheduler.schedule(
+        () => {
+          compactUnlockTimerRef.current = null;
+          setCompactLock("surface-opening", false);
+        },
+        NAV_SURFACE_CLOSE_TO_COMPACT_DELAY_MS,
+        {
+          label: "surface:compact-cooldown",
+        },
+      );
     },
     [runtimeScheduler, setCompactLock],
   );
@@ -2417,7 +2448,7 @@ export function NavSurfaceHeaderButton({
         ariaLabel || (typeof children === "string" ? children : undefined)
       }
       className={cn(
-        "pointer-events-auto center shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none",
+        "pointer-events-auto center shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none",
         isText ? "h-9 px-3.5 text-xs font-semibold" : "size-9",
         className,
       )}
@@ -2496,10 +2527,11 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
     <AnimatePresence>
       <motion.div
         key="nav-surface-controls-container"
-        initial={{ opacity: 0, y: targetY + 6 }}
-        animate={{ opacity: 1, y: targetY }}
-        exit={{ opacity: 0, y: targetY + 6 }}
-        transition={{ duration: 0.44, ease: NAV_EASINGS.CINEMATIC }}
+        custom={targetY}
+        variants={navSurfaceControlsContainerVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-[calc(100%+4px)] z-30 select-none flex items-center justify-center gap-2",
           className,
@@ -2509,10 +2541,10 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
           {hasHeaderAction && (
             <motion.div
               key="nav-surface-custom-action"
-              initial={{ opacity: 0, scale: 0.92, x: 4 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.92, x: 4 }}
-              transition={{ duration: 0.28, ease: NAV_EASINGS.CINEMATIC }}
+              variants={navSurfaceControlsActionVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="pointer-events-auto flex shrink-0 items-center"
             >
               {resolvedHeaderAction}
@@ -2522,10 +2554,10 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
           {hasBack && (
             <motion.div
               key="nav-surface-back"
-              initial={{ opacity: 0, scale: 0.85, x: 4 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.85, x: 4 }}
-              transition={{ duration: 0.32, ease: NAV_EASINGS.CINEMATIC }}
+              variants={navSurfaceControlsBackVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="pointer-events-auto"
             >
               <Button
@@ -2534,7 +2566,7 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
                   event.stopPropagation();
                   resolvedBack();
                 }}
-                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
                 aria-label={resolvedBackLabel}
                 title={resolvedBackLabel}
               >
@@ -2546,10 +2578,10 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
           {hasClose && (
             <motion.div
               key="nav-surface-close"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-              transition={{ duration: 0.32, ease: NAV_EASINGS.CINEMATIC }}
+              variants={navSurfaceControlsCloseVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="pointer-events-auto"
             >
               <Button
@@ -2558,7 +2590,7 @@ export const NavSurfaceControls = memo(function NavSurfaceControls({
                   event.stopPropagation();
                   resolvedClose();
                 }}
-                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset backdrop-blur-2xl hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
+                className="center size-9 shrink-0 cursor-pointer rounded-full bg-black/60 text-white/70 ring-1 ring-white/10 ring-inset hover:z-10 hover:bg-white/15 hover:text-white hover:ring-white/15 active:scale-95 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white/15 focus-visible:outline-none transition-[transform,background-color,color,border-color] duration-150 ease-out"
                 aria-label={resolvedCloseLabel}
                 title={resolvedCloseLabel}
               >
@@ -2619,8 +2651,16 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
     surfaceId == null ? undefined : `nav-surface-title-${surfaceId}`;
 
   const dragY = useMotionValue(0);
-  const dragOpacity = useTransform(dragY, [0, 180], [1, 0.75]);
-  const dragScale = useTransform(dragY, [0, 180], [1, 0.96]);
+  const dragOpacity = useTransform(
+    dragY,
+    NAV_SURFACE_DRAG_INTERPOLATION.DRAG_RANGE,
+    NAV_SURFACE_DRAG_INTERPOLATION.OPACITY_RANGE,
+  );
+  const dragScale = useTransform(
+    dragY,
+    NAV_SURFACE_DRAG_INTERPOLATION.DRAG_RANGE,
+    NAV_SURFACE_DRAG_INTERPOLATION.SCALE_RANGE,
+  );
 
   useNavigationFocusTrap({
     containerRef: surfaceElementRef,
@@ -2636,7 +2676,10 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
       !isFullyOpen
     )
       return;
-    if (info.offset.y > 65 || info.velocity.y > 400) {
+    if (
+      info.offset.y > NAV_SURFACE_DRAG_THRESHOLDS.DISMISS_OFFSET_Y ||
+      info.velocity.y > NAV_SURFACE_DRAG_THRESHOLDS.DISMISS_VELOCITY_Y
+    ) {
       onClose();
     }
   };
@@ -2711,12 +2754,17 @@ export const NavSurfaceShell = forwardRef(function NavSurfaceShell(
                 transition={
                   surfacePhase === NAV_SURFACE_PHASE.COLLAPSING_BODY
                     ? NAV_SURFACE_BODY_EXIT_TRANSITION
-                    : NAV_SURFACE_BODY_ENTER_TRANSITION
+                    : surfacePhase === NAV_SURFACE_PHASE.OPEN
+                      ? NAV_SURFACE_BODY_STEP_TRANSITION
+                      : NAV_SURFACE_BODY_ENTER_TRANSITION
                 }
                 style={{
                   ...NAV_COMPOSITOR_STYLE,
                 }}
-                className={cn("w-full overflow-hidden rounded-[20px]", contentClassName)}
+                className={cn(
+                  "w-full overflow-hidden rounded-[20px]",
+                  contentClassName,
+                )}
               >
                 {children}
               </motion.div>

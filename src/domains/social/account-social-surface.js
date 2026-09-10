@@ -26,6 +26,7 @@ import {
   applyAvatarFallback,
   getUserAvatarFallbackUrl,
   getUserAvatarUrl,
+  isValidBannerUrl,
 } from "@/shared";
 import AdaptiveImage from "@/ui/components/adaptive-image";
 import { Button, Icon } from "@/ui/primitives";
@@ -85,6 +86,7 @@ function hydrateFollowUsers(list) {
       id: item.userId || item.id,
       username: item.username || null,
       avatarUrl: item.avatarUrl || item.avatar_url || null,
+      bannerUrl: item.bannerUrl || item.banner_url || null,
       displayName: item.displayName || item.display_name || item.username || "Anonymous User",
       status: item.status || FOLLOW_STATUSES.ACCEPTED,
     }))
@@ -227,6 +229,7 @@ const UserAction = memo(function UserAction({
 const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }) {
   const avatarSrc = getUserAvatarUrl(user);
   const avatarFallbackSrc = getUserAvatarFallbackUrl(user);
+  const hasBanner = isValidBannerUrl(user?.bannerUrl);
 
   return (
     <motion.div
@@ -234,12 +237,31 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
       custom={index}
       initial="hidden"
       animate="visible"
-      className="group relative flex h-12 min-h-[48px] w-full items-center gap-3 px-1.5 transition-colors duration-150"
+      className="group relative flex h-12 min-h-[48px] w-full items-center gap-3 overflow-hidden rounded-[16px] px-1.5 transition-colors duration-150"
     >
+      {hasBanner ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[inherit] select-none"
+        >
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-25 transition-transform duration-500 ease-out group-hover:scale-105"
+            style={{
+              backgroundImage: `url("${user.bannerUrl}")`,
+              maskImage:
+                "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.65) 70%, black 100%)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.65) 70%, black 100%)",
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
+        </div>
+      ) : null}
+
       <Link
         href={`/account/${user.username || user.id}`}
         onClick={close}
-        className="flex min-w-0 flex-1 items-center gap-3"
+        className="relative z-10 flex min-w-0 flex-1 items-center gap-3"
       >
         <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-black ring-1 ring-white/10 ring-inset">
           <AdaptiveImage
@@ -262,7 +284,7 @@ const SocialUserRow = memo(function SocialUserRow({ close, user, action, index }
           </span>
         </div>
       </Link>
-      <div className="flex shrink-0 items-center">{action}</div>
+      <div className="relative z-10 flex shrink-0 items-center">{action}</div>
     </motion.div>
   );
 });

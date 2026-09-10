@@ -81,6 +81,7 @@ import { applyMediaAction } from "./media";
 import { BreadcrumbProvider } from "./breadcrumbs";
 import { useNavCommandRegistry } from "./commands";
 import { createNavigationScheduler } from "./scheduler";
+import { NAV_COMPACT_TO_EXPAND_DELAY_MS } from "./motion";
 import { useBackgroundActions, useBackgroundState } from "@/modules/background";
 import { useLoadingActions, useLoadingState } from "@/modules/loading";
 import {
@@ -2077,7 +2078,7 @@ export function useNavigation() {
         setExpandedState(resolvedValue);
         return;
       }
-      exitCompact();
+      exitCompact({ preserveRestore: true });
       if (pendingExpandFrameRef.current !== null) {
         return;
       }
@@ -2086,7 +2087,7 @@ export function useNavigation() {
           pendingExpandFrameRef.current = null;
           setExpandedState(true);
         },
-        320,
+        NAV_COMPACT_TO_EXPAND_DELAY_MS,
         {
           label: "navigation:expand",
         },

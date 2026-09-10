@@ -204,7 +204,6 @@ export function BackgroundOverlay() {
     applyVideoPlaybackState({
       videoElement,
       isPlaying,
-      isMuted,
       playbackRate,
       setVideoPlaying,
     });
@@ -217,7 +216,6 @@ export function BackgroundOverlay() {
     isVideo,
     video,
     isPlaying,
-    isMuted,
     playbackRate,
     setVideoElement,
     setVideoPlaying,
@@ -361,7 +359,7 @@ export function BackgroundOverlay() {
                       noiseBlendMode.trim()
                         ? noiseBlendMode
                         : "overlay",
-                    backgroundImage: "url(/images/noise.png)",
+                    backgroundImage: "url(/images/noise.webp)",
                     backgroundRepeat: "repeat",
                     ...(resolvedMaskImage
                       ? {
@@ -421,7 +419,7 @@ export function BackgroundOverlay() {
                   typeof noiseBlendMode === "string" && noiseBlendMode.trim()
                     ? noiseBlendMode
                     : "overlay",
-                backgroundImage: "url(/images/noise.png)",
+                backgroundImage: "url(/images/noise.webp)",
                 backgroundRepeat: "repeat",
                 ...noiseInlineStyle,
               }}
@@ -430,7 +428,7 @@ export function BackgroundOverlay() {
 
           {(!isVideo || !hasCustomWidth) && overlay && (
             <div
-              className="absolute inset-0 transition-all duration-300 ease-in-out"
+              className="pointer-events-none absolute inset-0 transition-all duration-300 ease-in-out"
               style={{
                 opacity: overlayOpacity,
                 backgroundColor: overlayColor,

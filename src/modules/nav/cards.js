@@ -27,6 +27,7 @@ import {
 } from "./layout";
 import {
   isImageIconSource,
+  isValidBannerUrl,
   isValidComponentType,
   resolveNavHeaderKey,
 } from "./utils";
@@ -39,10 +40,10 @@ import {
   NAV_HEADER_SWAP_TRANSITION,
   NAV_HUD_TRANSITION,
   NAV_ICON_TRANSITION,
-  NAV_SURFACE_BODY_ENTER_TRANSITION,
-  NAV_SURFACE_BODY_EXIT_TRANSITION,
   NAV_SKELETON_PULSE_CLASS,
+  NAV_TAP_SCALE,
   NAV_TEXT_ENTER_TRANSITION,
+  getNavActionMotionProps,
   getNavCardContentAnimateProps,
   getNavCardContentTransition,
   getNavCardDelay,
@@ -58,7 +59,6 @@ import {
   navHeaderSwapVariants,
   navExtensionShelfVariants,
   navHeaderRestoreVariants,
-  navSurfaceBodyVariants,
   navCompactTitleVariants,
   navHudVariants,
   textCrossfadeVariants,
@@ -194,6 +194,41 @@ const NavIconOverlay = memo(function NavIconOverlay({ overlay }) {
     </AnimatePresence>
   );
 });
+export const NavCardBanner = memo(function NavCardBanner({
+  bannerUrl,
+  compact,
+  isSurfaceActive = false,
+}) {
+  const shouldRender = isValidBannerUrl(bannerUrl) && !compact && !isSurfaceActive;
+
+  return (
+    <AnimatePresence>
+      {shouldRender && (
+        <motion.div
+          key="nav-card-banner"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={NAV_FADE_TRANSITION}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[30px] select-none"
+        >
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 transition-transform duration-700 ease-out group-hover:scale-105"
+            style={{
+              backgroundImage: `url("${bannerUrl}")`,
+              maskImage:
+                "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 20%, rgba(0,0,0,0.8) 75%, black 100%)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 20%, rgba(0,0,0,0.8) 75%, black 100%)",
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+});
 export const NavIcon = memo(function NavIcon({
   icon,
   iconOverlay = null,
@@ -247,14 +282,15 @@ export const NavIcon = memo(function NavIcon({
   return (
     <div className="relative size-12 shrink-0">
       {typeof onClick === "function" ? (
-        <Button
+        <motion.button
+          {...getNavActionMotionProps()}
           type="button"
-          className="size-full cursor-pointer p-0"
+          className="size-full cursor-pointer p-0 focus:outline-none select-none"
           onClick={onClick}
           aria-label={ariaLabel || "Open"}
         >
           {iconElement}
-        </Button>
+        </motion.button>
       ) : (
         iconElement
       )}
@@ -436,7 +472,10 @@ function SurfaceStackItemContent({ link, surface, isActive }) {
   return (
     <div
       aria-hidden={isActive ? undefined : true}
-      className={cn("relative w-full overflow-hidden rounded-[20px]", !isActive && "hidden")}
+      className={cn(
+        "relative w-full overflow-hidden rounded-[20px]",
+        !isActive && "hidden",
+      )}
       inert={isActive ? undefined : true}
       onClick={(event) => event.stopPropagation()}
     >
@@ -494,6 +533,7 @@ function SurfaceItemContent({ link }) {
 }
 export const NavCardHeader = memo(function NavCardHeader({
   link,
+  activeItem = null,
   itemStyle,
   badge,
   showVideoIcon,
@@ -577,7 +617,7 @@ export const NavCardHeader = memo(function NavCardHeader({
             </div>
             {isTop && !link.isStatus ? (
               <NavCommandBar
-                activeItem={link}
+                activeItem={activeItem || link}
                 contextCommands={contextCommands}
               />
             ) : null}
@@ -589,6 +629,7 @@ export const NavCardHeader = memo(function NavCardHeader({
 });
 function StandardItemContent({
   link,
+  activeItem = null,
   isTop,
   itemStyle,
   badge,
@@ -610,19 +651,22 @@ function StandardItemContent({
   const description = link.description;
   const effectiveIconOverlay = showVideoIcon ? null : link.iconOverlay;
   const isIconInteractive = Boolean(link.onClick || showVideoIcon);
-  const handleIconClick = (event) => {
-    if (showVideoIcon) {
-      event.stopPropagation();
-      event.preventDefault();
-      toggleVideo();
-      return;
-    }
-    if (link.onClick) {
-      event.stopPropagation();
-      event.preventDefault();
-      link.onClick(event);
-    }
-  };
+  const handleIconClick = useCallback(
+    (event) => {
+      if (showVideoIcon) {
+        event.stopPropagation();
+        event.preventDefault();
+        toggleVideo();
+        return;
+      }
+      if (link.onClick) {
+        event.stopPropagation();
+        event.preventDefault();
+        link.onClick(event);
+      }
+    },
+    [link, showVideoIcon, toggleVideo],
+  );
   return (
     <AnimatePresence mode="wait" initial={false}>
       {isTop && isHudActive ? (
@@ -651,6 +695,7 @@ function StandardItemContent({
         >
           <NavCardHeader
             link={link}
+            activeItem={activeItem}
             itemStyle={itemStyle}
             badge={badge}
             showVideoIcon={showVideoIcon}
@@ -696,6 +741,7 @@ export const NavCardItem = memo(
       isActive,
       statusStyle = null,
       isHudActive = false,
+      isSurfaceActive = false,
       hud = null,
       clearHud = null,
       contextCommands = [],
@@ -708,8 +754,13 @@ export const NavCardItem = memo(
     const { cancelRoutePrefetch, prefetchRoute } = useRoutePrefetch(router);
     const { isVideo } = useBackgroundState();
     const isTopHudActive = Boolean(isTop && isHudActive);
+    const isHeaderRestoring =
+      link.surfacePhase === NAV_SURFACE_PHASE.RESTORING_HEADER;
     const showVideoScrubber = Boolean(
-      isTop && isVideo && !link.isSurface && !link.isStatus,
+      isTop &&
+        isVideo &&
+        (!link.isSurface || isHeaderRestoring) &&
+        !link.isStatus,
     );
     const badge = useNavBadge(link.name?.toLowerCase(), link.badge);
     const ActionComponent = useActionComponent(link, pathname, {
@@ -750,9 +801,11 @@ export const NavCardItem = memo(
       [effectiveStyle, isActive, showBorder],
     );
     const renderedActionNode =
-      link.isSurface || isTopHudActive ? null : ActionComponent;
+      (link.isSurface && !isHeaderRestoring) || isTopHudActive
+        ? null
+        : ActionComponent;
     const hasNestedInteractiveContent = Boolean(
-      renderedActionNode || link.isSurface,
+      renderedActionNode || (link.isSurface && !isHeaderRestoring),
     );
     const itemIdentity = link.path || link.name || link.type || "standard";
     const contentKey = link.isSurface
@@ -827,6 +880,7 @@ export const NavCardItem = memo(
       return (
         <StandardItemContent
           link={link}
+          activeItem={activeItem}
           isTop={isTop}
           itemStyle={itemStyle}
           badge={badge}
@@ -878,7 +932,9 @@ export const NavCardItem = memo(
         />
       );
     };
-    const isExtensionShelf = Boolean(!expanded && position === 1 && hasExtensions);
+    const isExtensionShelf = Boolean(
+      !expanded && position === 1 && hasExtensions,
+    );
     const {
       className: cardClassName,
       style: cardStyle,
@@ -889,11 +945,13 @@ export const NavCardItem = memo(
       cardStyle: itemStyle.card,
       cardScale: itemStyle.scale,
       isAnchoredToBottom: link.isSurface,
-      visibleCount: (globalCompact || link.isStatus) && !isStackHovered
-        ? 1
-        : hasExtensions && !expanded
-          ? 2
-          : 3,
+      isSurfaceActive,
+      visibleCount:
+        (globalCompact || link.isStatus) && !isStackHovered
+          ? 1
+          : hasExtensions && !expanded
+            ? 2
+            : 3,
       hasExtensions,
     });
     const cardDelay = useMemo(
@@ -923,6 +981,7 @@ export const NavCardItem = memo(
           motionValues,
           expanded,
           isStackHovered,
+          isSurfaceActive,
           position,
         })}
         transition={getNavItemTransition({
@@ -932,6 +991,11 @@ export const NavCardItem = memo(
           position,
           delay: cardDelay,
         })}
+        whileTap={
+          !link.isOverlay && !link.isStatus
+            ? { scale: (motionValues?.scale || 1) * NAV_TAP_SCALE }
+            : undefined
+        }
         exit={getNavItemCompactExitValues({
           position,
         })}
@@ -955,6 +1019,12 @@ export const NavCardItem = memo(
         }}
         onClick={onClick}
       >
+        <NavCardBanner
+          bannerUrl={link.bannerUrl}
+          compact={compact}
+          isSurfaceActive={isSurfaceActive || link.isSurface}
+        />
+
         {showVideoScrubber && <NavMediaScrubber />}
 
         <AnimatePresence>
@@ -1007,7 +1077,8 @@ export const NavCardItem = memo(
         >
           <AnimatePresence mode="popLayout" initial={false}>
             {link.isSurface &&
-            link.surfacePhase !== NAV_SURFACE_PHASE.DISMISSING_ACTION ? (
+            link.surfacePhase !== NAV_SURFACE_PHASE.DISMISSING_ACTION &&
+            link.surfacePhase !== NAV_SURFACE_PHASE.RESTORING_HEADER ? (
               <motion.div
                 key="surface-content-layer"
                 variants={navHeaderSwapVariants}
@@ -1041,7 +1112,7 @@ export const NavCardItem = memo(
               <motion.div
                 key="standard-content-layer"
                 variants={navHeaderRestoreVariants}
-                initial="visible"
+                initial="hidden"
                 animate="visible"
                 exit="exit"
                 transition={NAV_HEADER_SWAP_TRANSITION}

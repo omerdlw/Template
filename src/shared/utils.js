@@ -17,6 +17,12 @@ export function isImageIconSource(icon) {
   );
 }
 
+export function isValidBannerUrl(banner) {
+  const value = String(banner || "").trim();
+  if (!value) return false;
+  return /^(https?:\/\/|\/|data:image\/)/.test(value);
+}
+
 export function clamp(value, min, max) {
   const num = Number(value);
   const finite = Number.isFinite(num) ? num : min;

@@ -62,6 +62,9 @@ export function BackgroundProvider({ children }) {
   const toggleMute = useCallback(() => {
     setBackgroundState((prevState) => {
       const nextMuted = !prevState.videoOptions?.muted;
+      if (prevState.videoElement) {
+        prevState.videoElement.muted = nextMuted;
+      }
       return {
         ...prevState,
         videoOptions: {
@@ -69,6 +72,24 @@ export function BackgroundProvider({ children }) {
           muted: nextMuted,
         },
         isPlaying: nextMuted ? prevState.isPlaying : true,
+      };
+    });
+  }, []);
+  const setVideoMuted = useCallback((muted) => {
+    setBackgroundState((prevState) => {
+      const nextMuted = Boolean(muted);
+      if (prevState.videoElement) {
+        prevState.videoElement.muted = nextMuted;
+      }
+      if (prevState.videoOptions?.muted === nextMuted) {
+        return prevState;
+      }
+      return {
+        ...prevState,
+        videoOptions: {
+          ...prevState.videoOptions,
+          muted: nextMuted,
+        },
       };
     });
   }, []);
@@ -147,6 +168,7 @@ export function BackgroundProvider({ children }) {
     () => ({
       setVideoPlaying,
       setVideoElement,
+      setVideoMuted,
       resetBackground,
       setBackground,
       toggleVideo,
@@ -156,6 +178,7 @@ export function BackgroundProvider({ children }) {
     [
       setVideoPlaying,
       setVideoElement,
+      setVideoMuted,
       resetBackground,
       setBackground,
       toggleVideo,
@@ -199,7 +222,6 @@ export function applyVideoPlaybackState({
   playbackRate,
   videoElement,
   isPlaying,
-  isMuted,
 }) {
   if (!videoElement) return;
   const numericPlaybackRate = Number(playbackRate);
@@ -209,7 +231,6 @@ export function applyVideoPlaybackState({
       : 1;
   try {
     videoElement.playbackRate = resolvedPlaybackRate;
-    videoElement.muted = isMuted;
   } catch {
     return;
   }

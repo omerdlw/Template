@@ -1,17 +1,18 @@
 "use client";
 
 import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
+import { NAV_SURFACE_PHASE } from "./constants";
 import { toArray } from "./utils";
 import {
-  getNavActionStaggerTransition,
+  getNavActionMotionProps,
   NAV_BADGE_TRANSITION,
   navBadgeVariants,
   navCommandBarSwapVariants,
-  staggerItemVariants,
 } from "./motion";
 import { cn } from "@/shared/utils";
-import { Button, Tooltip } from "@/ui/primitives";
+import { Tooltip } from "@/ui/primitives";
 import Iconify from "@/ui/primitives/icon";
 function createCommandEntries(commands) {
   const entries = {};
@@ -38,7 +39,9 @@ function areCommandEntriesEqual(currentEntries, nextEntries) {
     return (
       currentEntryKeys.length === nextEntryKeys.length &&
       nextEntryKeys.every((entryKey) =>
-        Object.is(currentEntry[entryKey], nextEntry[entryKey]),
+        entryKey === "onClick"
+          ? typeof currentEntry[entryKey] === typeof nextEntry[entryKey]
+          : Object.is(currentEntry[entryKey], nextEntry[entryKey]),
       )
     );
   });
@@ -51,7 +54,22 @@ export function useNavCommandRegistry() {
     const key =
       command.key || `context-action-${++generatedCommandIdRef.current}`;
     setCommandEntries((currentEntries) => {
-      if (currentEntries[key] === command) return currentEntries;
+      const existing = currentEntries[key];
+      if (existing) {
+        const commandKeys = Object.keys(command);
+        const existingKeys = Object.keys(existing);
+        const isSame =
+          commandKeys.length === existingKeys.length &&
+          commandKeys.every((k) =>
+            k === "onClick"
+              ? typeof command[k] === typeof existing[k]
+              : Object.is(existing[k], command[k]),
+          );
+        if (isSame) {
+          if (command.onClick) existing.onClick = command.onClick;
+          return currentEntries;
+        }
+      }
       return {
         ...currentEntries,
         [key]: {
@@ -133,8 +151,9 @@ const NavCommand = memo(function NavCommand({ action }) {
       className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-black shadow-lg shadow-black/60"
       text={action.tooltip}
     >
-      <Button
-        className="center relative size-8 cursor-pointer rounded-xl p-1 text-white/70 hover:bg-white/10 hover:text-white"
+      <motion.button
+        {...getNavActionMotionProps({ disabled: action.disabled })}
+        className="center relative size-8 cursor-pointer rounded-xl p-1 text-white/70 hover:bg-white/10 hover:text-white select-none focus:outline-none"
         onClick={(event) => {
           event.stopPropagation();
           action.onClick?.(event);
@@ -160,7 +179,7 @@ const NavCommand = memo(function NavCommand({ action }) {
             </motion.span>
           )}
         </AnimatePresence>
-      </Button>
+      </motion.button>
     </Tooltip>
   );
 });
@@ -172,20 +191,33 @@ export const NavCommandBar = memo(function NavCommandBar({
     activeItem,
     contextCommands,
   });
-  const itemScope =
-    activeItem?.path || activeItem?.name || activeItem?.id || "root";
-  const actionsSignature = useMemo(
-    () => actions.map((a) => a.key || a.icon || "").join(":"),
-    [actions],
-  );
-  if (!actions.length) return null;
+  const pathname = usePathname();
+  const currentPath =
+    pathname || activeItem?.path || activeItem?.name || activeItem?.id || "root";
+
+  const [isExiting, setIsExiting] = useState(false);
+  const [prevActionsCount, setPrevActionsCount] = useState(actions.length);
+
+  if (actions.length !== prevActionsCount) {
+    setPrevActionsCount(actions.length);
+    if (actions.length === 0 && prevActionsCount > 0) {
+      setIsExiting(true);
+    }
+  }
+
+  const handleExitComplete = useCallback(() => {
+    if (actions.length === 0) {
+      setIsExiting(false);
+    }
+  }, [actions.length]);
+
+  if (!actions.length && !isExiting) return null;
   return (
     <div className="mr-1 flex shrink-0 items-center">
-      <AnimatePresence mode="popLayout" initial={false}>
+      <AnimatePresence mode="popLayout" onExitComplete={handleExitComplete}>
         {actions.map((action, index) => (
           <motion.div
-            layout="position"
-            key={`${itemScope}-${actionsSignature}-${action.key || action.icon || `nav-action-${index}`}`}
+            key={`${currentPath}-${action.key || action.icon || `nav-action-${index}`}`}
             variants={navCommandBarSwapVariants}
             custom={index}
             initial="hidden"
@@ -220,11 +252,15 @@ export function sortToolbarActionsByOrder(actions) {
   );
 }
 export function isActionlessNavItem(activeItem) {
+  const isSurfaceActive = Boolean(
+    activeItem?.isSurface &&
+    activeItem?.surfacePhase !== NAV_SURFACE_PHASE.RESTORING_HEADER,
+  );
   return Boolean(
     activeItem?.isNotFound ||
     activeItem?.path === "not-found" ||
     activeItem?.isMasked ||
-    activeItem?.isSurface,
+    isSurfaceActive,
   );
 }
 export function isStatusToolbarActionAllowed(activeItem) {

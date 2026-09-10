@@ -210,6 +210,7 @@ function AccountRouteNavGuard() {
             onOpenInbox={openAccountInbox}
           />
         ) : null,
+      bannerUrl: auth.isAuthenticated ? account?.bannerUrl || null : null,
       description: (auth.isAuthenticated && username) || "Manage your account",
       icon: (auth.isAuthenticated && account?.avatarUrl) || DEFAULT_ACCOUNT_ICON,
       keepWhenDescendant: (activePath) =>
@@ -225,6 +226,7 @@ function AccountRouteNavGuard() {
     }),
     [
       account?.avatarUrl,
+      account?.bannerUrl,
       account?.displayName,
       account?.isPrivate,
       auth.isAuthenticated,

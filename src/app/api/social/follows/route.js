@@ -55,7 +55,7 @@ export async function GET(request) {
       const followerIds = rows.map((r) => r.follower_id);
       const { data: profiles, error: pError } = await client
         .from("accounts")
-        .select("id, username, display_name, avatar_url")
+        .select("id, username, display_name, avatar_url, banner_url")
         .in("id", followerIds);
 
       if (pError) throw pError;
@@ -65,6 +65,7 @@ export async function GET(request) {
         const p = profileMap.get(r.follower_id) || {};
         return {
           avatarUrl: p.avatar_url || null,
+          bannerUrl: p.banner_url || null,
           createdAt: r.created_at,
           displayName: p.display_name || p.username || "Anonymous User",
           id: r.follower_id,
@@ -121,7 +122,7 @@ export async function GET(request) {
       const ids = rows.map((r) => r.follower_id);
       const { data: profiles, error: pError } = await client
         .from("accounts")
-        .select("id, username, display_name, avatar_url")
+        .select("id, username, display_name, avatar_url, banner_url")
         .in("id", ids);
 
       if (pError) throw pError;
@@ -131,6 +132,7 @@ export async function GET(request) {
         const p = profileMap.get(r.follower_id) || {};
         return {
           avatarUrl: p.avatar_url || null,
+          bannerUrl: p.banner_url || null,
           createdAt: r.created_at,
           displayName: p.display_name || p.username || "Anonymous User",
           id: r.follower_id,
@@ -165,7 +167,7 @@ export async function GET(request) {
       const ids = rows.map((r) => r.following_id);
       const { data: profiles, error: pError } = await client
         .from("accounts")
-        .select("id, username, display_name, avatar_url")
+        .select("id, username, display_name, avatar_url, banner_url")
         .in("id", ids);
 
       if (pError) throw pError;
@@ -175,6 +177,7 @@ export async function GET(request) {
         const p = profileMap.get(r.following_id) || {};
         return {
           avatarUrl: p.avatar_url || null,
+          bannerUrl: p.banner_url || null,
           createdAt: r.created_at,
           displayName: p.display_name || p.username || "Anonymous User",
           id: r.following_id,

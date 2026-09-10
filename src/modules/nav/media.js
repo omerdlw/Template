@@ -95,7 +95,7 @@ export const NavMediaControls = memo(function NavMediaControls({
   className = "",
 }) {
   const { videoElement, videoOptions } = useBackgroundState();
-  const { toggleLoop } = useBackgroundActions();
+  const { toggleLoop, setVideoMuted } = useBackgroundActions();
   const [playbackRate, setPlaybackRate] = useState(
     videoElement?.playbackRate || 1,
   );
@@ -185,11 +185,13 @@ export const NavMediaControls = memo(function NavMediaControls({
         volumeThumbRef.current.style.left = `${fraction * 100}%`;
       }
       videoElement.volume = nextVolume;
-      videoElement.muted = nextVolume === 0;
+      const nextMuted = nextVolume === 0;
+      videoElement.muted = nextMuted;
+      setVideoMuted?.(nextMuted);
       setVolume(nextVolume);
-      setIsMuted(nextVolume === 0);
+      setIsMuted(nextMuted);
     },
-    [videoElement],
+    [setVideoMuted, videoElement],
   );
   const handleVolumePointerDown = useCallback(
     (event) => {
@@ -240,6 +242,7 @@ export const NavMediaControls = memo(function NavMediaControls({
         const restoredVolume = volume === 0 ? 0.7 : volume;
         videoElement.volume = restoredVolume;
         videoElement.muted = false;
+        setVideoMuted?.(false);
         setVolume(restoredVolume);
         setIsMuted(false);
         if (volumeFillRef.current) {
@@ -250,6 +253,7 @@ export const NavMediaControls = memo(function NavMediaControls({
         }
       } else {
         videoElement.muted = true;
+        setVideoMuted?.(true);
         setIsMuted(true);
         if (volumeFillRef.current) {
           volumeFillRef.current.style.width = "0%";
@@ -259,7 +263,7 @@ export const NavMediaControls = memo(function NavMediaControls({
         }
       }
     },
-    [isMuted, videoElement, volume],
+    [isMuted, setVideoMuted, videoElement, volume],
   );
   const handleTogglePip = useCallback(async () => {
     if (!videoElement) return;
@@ -288,7 +292,7 @@ export const NavMediaControls = memo(function NavMediaControls({
     effectiveVolume === 0
       ? "solar:volume-cross-bold"
       : effectiveVolume < 0.5
-        ? "solar:volume-low-bold"
+        ? "solar:volume-small-bold"
         : "solar:volume-loud-bold";
   return (
     <div
@@ -298,11 +302,12 @@ export const NavMediaControls = memo(function NavMediaControls({
       )}
     >
       <div className="flex items-center gap-1.5">
-        <Button
+        <motion.button
+          {...getNavActionMotionProps()}
           type="button"
           onClick={handleCycleSpeed}
           className={cn(
-            "flex h-8 cursor-pointer items-center justify-center rounded-full px-3 text-xs font-semibold tabular-nums ring-1 ring-inset",
+            "flex h-8 cursor-pointer items-center justify-center rounded-full px-3 text-xs font-semibold tabular-nums ring-1 ring-inset select-none",
             playbackRate !== 1
               ? "bg-white/10 text-white ring-white/10 hover:bg-white/15"
               : "bg-white/5 text-white/70 ring-white/5 hover:bg-white/10 hover:text-white hover:ring-white/10",
@@ -311,27 +316,29 @@ export const NavMediaControls = memo(function NavMediaControls({
           title={`Playback speed: ${playbackRate}x`}
         >
           <span>{playbackRate}x</span>
-        </Button>
+        </motion.button>
 
-        <Button
+        <motion.button
+          {...getNavActionMotionProps()}
           type="button"
           onClick={handleSkipBackward}
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:bg-white/10 hover:text-white hover:ring-white/10"
+          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:bg-white/10 hover:text-white hover:ring-white/10 select-none"
           aria-label="Rewind 10 seconds"
           title="Rewind 10 seconds"
         >
           <Iconify icon="solar:rewind-10-seconds-back-bold" size={16} />
-        </Button>
+        </motion.button>
 
-        <Button
+        <motion.button
+          {...getNavActionMotionProps()}
           type="button"
           onClick={handleSkipForward}
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:bg-white/10 hover:text-white hover:ring-white/10"
+          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/5 text-white/70 ring-1 ring-white/5 ring-inset hover:bg-white/10 hover:text-white hover:ring-white/10 select-none"
           aria-label="Forward 10 seconds"
           title="Forward 10 seconds"
         >
           <Iconify icon="solar:rewind-10-seconds-forward-bold" size={16} />
-        </Button>
+        </motion.button>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -375,7 +382,9 @@ export const NavMediaControls = memo(function NavMediaControls({
                 event.preventDefault();
                 const next = Math.max(0, volume - 0.05);
                 videoElement.volume = next;
-                videoElement.muted = next === 0;
+                const nextMuted = next === 0;
+                videoElement.muted = nextMuted;
+                setVideoMuted?.(nextMuted);
               } else if (
                 event.key === "ArrowRight" ||
                 event.key === "ArrowUp"
@@ -384,6 +393,7 @@ export const NavMediaControls = memo(function NavMediaControls({
                 const next = Math.min(1, volume + 0.05);
                 videoElement.volume = next;
                 videoElement.muted = false;
+                setVideoMuted?.(false);
               }
             }}
             className="group/track relative flex h-6 w-16 cursor-pointer touch-none items-center select-none sm:w-20"
@@ -424,11 +434,12 @@ export const NavMediaControls = memo(function NavMediaControls({
         </motion.div>
 
         {isPipSupported && (
-          <Button
+          <motion.button
+            {...getNavActionMotionProps()}
             type="button"
             onClick={handleTogglePip}
             className={cn(
-              "flex size-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-inset",
+              "flex size-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-inset select-none",
               isPipActive
                 ? "bg-white/10 text-white ring-white/10 hover:bg-white/15"
                 : "bg-white/5 text-white/70 ring-white/5 hover:bg-white/10 hover:text-white hover:ring-white/10",
@@ -443,14 +454,15 @@ export const NavMediaControls = memo(function NavMediaControls({
             }
           >
             <Iconify icon="solar:pip-bold" size={16} />
-          </Button>
+          </motion.button>
         )}
 
-        <Button
+        <motion.button
+          {...getNavActionMotionProps()}
           type="button"
           onClick={toggleLoop}
           className={cn(
-            "flex size-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-inset",
+            "flex size-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-inset select-none",
             isLoop
               ? "bg-white/10 text-white ring-white/10 hover:bg-white/15"
               : "bg-white/5 text-white/70 ring-white/5 hover:bg-white/10 hover:text-white hover:ring-white/10",
@@ -459,7 +471,7 @@ export const NavMediaControls = memo(function NavMediaControls({
           title={isLoop ? "Loop: On" : "Loop: Off"}
         >
           <Iconify icon="solar:repeat-bold" size={16} />
-        </Button>
+        </motion.button>
       </div>
     </div>
   );

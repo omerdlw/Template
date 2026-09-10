@@ -28,12 +28,19 @@ export function AccountRegistry({
   const targetNavConfig = useMemo(() => {
     if (isOwner || !account?.username) return null;
     return {
+      bannerUrl: account.bannerUrl || null,
       description: `@${account.username}`,
       icon: account.avatarUrl || DEFAULT_ACCOUNT_ICON,
       path: `/account/${encodeURIComponent(account.username)}`,
       title: account.displayName || account.username || "Account",
     };
-  }, [account?.avatarUrl, account?.displayName, account?.username, isOwner]);
+  }, [
+    account?.avatarUrl,
+    account?.bannerUrl,
+    account?.displayName,
+    account?.username,
+    isOwner,
+  ]);
 
   useNavRegistration(targetNavConfig, {
     priority: 250,

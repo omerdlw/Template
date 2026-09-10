@@ -46,6 +46,7 @@ export function getNavItemCardProps({
   expanded,
   hasExtensions = false,
   isAnchoredToBottom,
+  isSurfaceActive = false,
   position,
   visibleCount = 3,
 }) {
@@ -63,20 +64,28 @@ export function getNavItemCardProps({
   const isHeavyBlur = isTop || expanded;
   const collapsedScaleValue = collapsedScale ** position;
   const isShelf = !expanded && position === 1 && hasExtensions;
-  const y = expanded
+  let y = expanded
     ? position * expandedOffsetY
     : isShelf
       ? NAV_CARD_LAYOUT.extensionShelfY
       : position * collapsedOffsetY;
   const shelfScale = NAV_CARD_LAYOUT.extensionShelfScale ?? 0.85;
-  const scale = expanded
+  let scale = expanded
     ? cardScale || 1
     : isShelf
       ? shelfScale
       : collapsedScaleValue;
   const collapsedOpacity = Math.max(0.1, +(1 - position * 0.2).toFixed(2));
-  const opacity =
+  let opacity =
     expanded || isShelf ? 1 : position < visibleCount ? collapsedOpacity : 0;
+
+  // Active surface opened on top card: background cards gracefully recede into depth
+  if (isSurfaceActive && position > 0) {
+    scale = +(scale * 0.94).toFixed(3);
+    y = y + 4;
+    opacity = +(opacity * 0.4).toFixed(2);
+  }
+
   return {
     className: cn(
       "absolute h-auto w-full ring-1 ring-inset ring-white/10 bg-black/60 rounded-[30px] p-2.5 transform-gpu isolate",

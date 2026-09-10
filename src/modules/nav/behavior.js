@@ -62,10 +62,10 @@ export function canUseBottomLock(scrollableHeight, viewportHeight = null) {
 }
 export function resolveCompactBehavior({
   isInputFocused,
-  isPointerIdle,
-  isVideoPlaying,
-}) {
-  return isInputFocused || isVideoPlaying || isPointerIdle
+  isPointerIdle = false,
+  isVideoPlaying = false,
+} = {}) {
+  return isInputFocused
     ? NAV_COMPACT_BEHAVIOR.FOCUSED
     : NAV_COMPACT_BEHAVIOR.BROWSING;
 }
@@ -338,17 +338,22 @@ export function useNavigationCompactController({
     };
   }, []);
 
-  const exitCompact = useCallback(() => {
+  const exitCompact = useCallback((options = {}) => {
+    const preserveRestore = Boolean(
+      options && typeof options === "object" ? options.preserveRestore : false,
+    );
     if (collapseTimerRef.current !== null) {
       clearTimeout(collapseTimerRef.current);
       collapseTimerRef.current = null;
     }
     if (!compactRef.current) return false;
-    userExitedCompactRef.current = true;
-    restoreCompactRef.current = false;
+    userExitedCompactRef.current = !preserveRestore;
+    restoreCompactRef.current = preserveRestore;
     compactRef.current = false;
     bottomLockRef.current = false;
     downwardTravelRef.current = 0;
+    suppressCompactUntilRef.current =
+      getCurrentTimestamp() + COMPACT_TOGGLE_COOLDOWN_MS;
     lastScrollYRef.current =
       typeof window === "undefined" ? 0 : window.scrollY || 0;
     lastToggleTimeRef.current = getCurrentTimestamp();
@@ -399,7 +404,8 @@ export function useNavigationCompactController({
         clearTimeout(collapseTimerRef.current);
         collapseTimerRef.current = null;
       }
-      restoreCompactRef.current = compactRef.current;
+      restoreCompactRef.current =
+        restoreCompactRef.current || compactRef.current;
       compactRef.current = false;
       bottomLockRef.current = false;
       suppressCompactUntilRef.current = 0;
@@ -413,6 +419,7 @@ export function useNavigationCompactController({
     wasExpandedRef.current = false;
 
     if (isCollapsingFromExpanded) {
+      const shouldRestoreToCompact = restoreCompactRef.current;
       userExitedCompactRef.current = false;
       restoreCompactRef.current = false;
       compactRef.current = false;
@@ -431,12 +438,23 @@ export function useNavigationCompactController({
         const distanceToBottom = getDistanceToBottom(scrollY);
         const scrollableHeight = getScrollableHeight();
         const canBottomLock = canUseBottomLock(scrollableHeight);
-        const shouldLock =
+        const isNearBottom =
           canBottomLock &&
           scrollY > COMPACT_RELEASE_THRESHOLD &&
           distanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
-        if (shouldLock) {
-          bottomLockRef.current = true;
+
+        const canActivateCompact =
+          compactAllowed &&
+          !compactLocked &&
+          scrollY > COMPACT_RELEASE_THRESHOLD &&
+          (shouldRestoreToCompact ||
+            isNearBottom ||
+            scrollY >= COMPACT_SCROLL_THRESHOLD);
+
+        if (canActivateCompact) {
+          if (isNearBottom) {
+            bottomLockRef.current = true;
+          }
           compactRef.current = true;
           lastToggleTimeRef.current = getCurrentTimestamp();
           setCompact(true);
@@ -445,9 +463,10 @@ export function useNavigationCompactController({
     } else {
       const shouldRestoreCompact =
         restoreCompactRef.current &&
-        canInitialBottomLock &&
-        currentScrollY > COMPACT_RELEASE_THRESHOLD &&
-        initialDistanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE;
+        ((canInitialBottomLock &&
+          currentScrollY > COMPACT_RELEASE_THRESHOLD &&
+          initialDistanceToBottom <= BOTTOM_LOCK_RELEASE_DISTANCE) ||
+          currentScrollY >= COMPACT_SCROLL_THRESHOLD);
       restoreCompactRef.current = false;
       bottomLockRef.current = shouldStartBottomLocked;
       compactRef.current = shouldStartBottomLocked
@@ -490,9 +509,38 @@ export function useNavigationCompactController({
         bottomLockRef.current = false;
       }
 
-      const nextValue = Boolean(bottomLockRef.current && canKeepBottomLock);
+      if (scrollY < OVERSCROLL_THRESHOLD) {
+        lastScrollYRef.current = scrollY;
+        return;
+      }
+
+      const scrollDelta = scrollY - lastScrollYRef.current;
+      const compactActivationSuppressed =
+        !compactRef.current &&
+        getCurrentTimestamp() < suppressCompactUntilRef.current;
+
+      if (scrollDelta >= COMPACT_MIN_ACTIVATION_DELTA) {
+        downwardTravelRef.current += scrollDelta;
+      } else if (
+        scrollDelta < -SCROLL_DIRECTION_EPSILON ||
+        scrollY <= COMPACT_RELEASE_THRESHOLD
+      ) {
+        downwardTravelRef.current = 0;
+      }
+
+      const isBottomLocked = Boolean(bottomLockRef.current && canKeepBottomLock);
+
+      const nextValue =
+        isBottomLocked ||
+        resolveCompactState(
+          scrollY,
+          lastScrollYRef.current,
+          compactRef.current,
+          downwardTravelRef.current,
+          compactActivationSuppressed,
+        );
+
       lastScrollYRef.current = scrollY;
-      downwardTravelRef.current = 0;
 
       if (nextValue === compactRef.current) {
         return;
@@ -505,6 +553,9 @@ export function useNavigationCompactController({
       }
       compactRef.current = nextValue;
       lastToggleTimeRef.current = getCurrentTimestamp();
+      if (nextValue) {
+        downwardTravelRef.current = 0;
+      }
       setCompact(nextValue);
     };
     const handleWheel = (event) => {

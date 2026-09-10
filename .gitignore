@@ -21,6 +21,7 @@
 
 # production
 /build
+/public/download.mp4
 
 # misc
 .DS_Store

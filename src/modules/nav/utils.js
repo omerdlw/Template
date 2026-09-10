@@ -5,6 +5,7 @@ import {
   formatMediaTime,
   isImageIconSource,
   isObject as isObjectLike,
+  isValidBannerUrl,
   shallowEqual as areShallowCollectionsEqual,
   toArray,
 } from "@/shared/utils";
@@ -15,7 +16,15 @@ import {
   NAVIGATION_FOCUS_RESTORE_BLOCKED_REASONS,
 } from "./constants";
 
-export { areShallowCollectionsEqual, clamp, formatMediaTime, isImageIconSource, isObjectLike, toArray };
+export {
+  areShallowCollectionsEqual,
+  clamp,
+  formatMediaTime,
+  isImageIconSource,
+  isObjectLike,
+  isValidBannerUrl,
+  toArray,
+};
 
 export function toObject(value) {
   return isObjectLike(value) ? value : {};
